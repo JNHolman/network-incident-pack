@@ -38,7 +38,7 @@ Security fixes are applied to the latest tagged release.
 
 ## Input-validation boundary
 
-Host and integration endpoint validation is intended to prevent accidental option/URL confusion and obvious credential-routing mistakes in an operations tool. It rejects control/whitespace characters, non-ASCII host/endpoint text, embedded URL credentials, query/fragment data, backslash ambiguity, and invalid ports. This is defense in depth; the project does not claim to be a hardened URL parser for hostile multi-tenant input.
+Host and integration endpoint validation is intended to prevent accidental option/URL confusion, malformed operator configuration, and obvious credential-routing mistakes in an operations tool. Integration endpoints are operator-configured rather than arbitrary attacker-supplied request parameters. Validation rejects control/whitespace characters, non-ASCII host/endpoint text, malformed hostnames, embedded URL credentials, query/fragment data, backslash ambiguity, and invalid ports. This is defense in depth; the project does not claim to be a hardened URL parser for hostile multi-tenant input.
 
 
 ## Release hygiene

@@ -9,7 +9,7 @@ It collects host-side interface, Layer 2–4, and DNS evidence an engineer would
 
 ## See it run
 
-The repo includes a **live local sandbox** that creates real socket/DNS conditions and runs the normal Incident Pack collection path against them.
+The repo includes a **[live local sandbox](lab/live_demo.py)** that creates real socket/DNS conditions and runs the normal Incident Pack collection path against them.
 
 ```bash
 python -m lab.live_demo --out-dir ./lab-output
@@ -37,6 +37,14 @@ The demo intentionally produces both passing and failing conditions:
 These are **not prebuilt JSON fixtures**. The sandbox uses real localhost listeners, real TCP handshakes/refusals, real DNS resolution failure, the live collectors, parsers, health engine, report validation, and output writers.
 
 Each run writes structured JSON and Markdown under `./lab-output/<case>/`.
+
+### Live sandbox result
+
+![Network Incident Pack live sandbox](docs/live_demo_real.png)
+
+This screenshot is from a real macOS run of the live sandbox. The dynamically allocated ports, TCP refusal, DNS failure, and report paths are produced by the normal application path rather than prebuilt result fixtures.
+
+See the [sandbox implementation](lab/local_sandbox.py) and [lab validation notes](docs/LAB_VALIDATION.md).
 
 A report summary looks like:
 
