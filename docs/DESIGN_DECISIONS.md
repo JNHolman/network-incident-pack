@@ -23,3 +23,7 @@ Credentials come from environment variables. Structured secret-bearing fields ar
 ## Stay focused on incident collection
 
 The core remains host-side and vendor-neutral. A cloud-hosted target uses the same network checks as an on-premises target; Azure data is supplemental control-plane context. Device-specific adapters can be added later if they provide useful troubleshooting evidence, but this repository is not intended to become a general network-management or cloud-provisioning project.
+
+## Release archives come from Git, not the working directory
+
+Release ZIPs are built with `scripts/build_release.sh`, which wraps `git archive`. Only files tracked at the selected Git ref are included. Local virtual environments, `.git`, caches, generated reports, and build metadata therefore cannot enter a release archive merely because they exist in the maintainer's working directory.

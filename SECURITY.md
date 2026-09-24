@@ -35,3 +35,12 @@ Use GitHub's private **Report a vulnerability** / Security Advisory flow when it
 ## Supported release
 
 Security fixes are applied to the latest tagged release.
+
+## Input-validation boundary
+
+Host and integration endpoint validation is intended to prevent accidental option/URL confusion and obvious credential-routing mistakes in an operations tool. It rejects control/whitespace characters, non-ASCII host/endpoint text, embedded URL credentials, query/fragment data, backslash ambiguity, and invalid ports. This is defense in depth; the project does not claim to be a hardened URL parser for hostile multi-tenant input.
+
+
+## Release hygiene
+
+Release ZIPs are built with `git archive`, not by compressing a working directory. This keeps `.git`, virtual environments, Python caches, build metadata, generated reports, and other local artifacts out of distributable source archives. CI verifies the built archive before merge.

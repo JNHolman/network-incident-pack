@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional
+from typing import Mapping, Optional
 
 from incidentpack.integrations.http import ApiError, JsonApiClient
 from incidentpack.validation import validate_https_endpoint

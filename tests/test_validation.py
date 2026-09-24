@@ -39,6 +39,18 @@ class HostValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_host("-bad.example.com")
 
+    def test_rejects_unicode_and_control_character_confusion(self):
+        bad_values = [
+            "examp\u200ble.com",
+            "example.com\x00--help",
+            "example.com\n--help",
+            "example.com\t--help",
+        ]
+        for value in bad_values:
+            with self.subTest(value=repr(value)):
+                with self.assertRaises(ValueError):
+                    validate_host(value)
+
 
 class IntegrationEndpointValidationTests(unittest.TestCase):
     def test_accepts_https_endpoint(self):
@@ -60,6 +72,19 @@ class IntegrationEndpointValidationTests(unittest.TestCase):
             validate_https_endpoint("https://example.com?token=abc", "API_URL")
         with self.assertRaises(ValueError):
             validate_https_endpoint("https://example.com/#frag", "API_URL")
+
+    def test_rejects_parser_confusion_inputs(self):
+        bad_values = [
+            "https://a.com\t@evil.com",
+            "https://a.com\\@evil.com",
+            "https://user%3Apass@example.com",
+            "https://example.com:99999",
+            "https://examp\u200ble.com",
+        ]
+        for value in bad_values:
+            with self.subTest(value=repr(value)):
+                with self.assertRaises(ValueError):
+                    validate_https_endpoint(value, "API_URL")
 
 
 class RuntimeGuardrailTests(unittest.TestCase):

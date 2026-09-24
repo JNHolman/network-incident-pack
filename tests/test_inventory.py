@@ -2,7 +2,6 @@ import unittest
 
 from incidentpack.inventory import InventoryError, resolve_device, resolve_direct_target
 
-
 CONFIG = {
     "version": 1,
     "defaults": {"ports": [443, 80, 22]},

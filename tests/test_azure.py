@@ -1,4 +1,3 @@
-import os
 import unittest
 from unittest import mock
 
@@ -7,7 +6,6 @@ from incidentpack.integrations.azure import (
     AzureError,
     AzureSettings,
 )
-
 
 VM_ID = (
     "/subscriptions/00000000-0000-0000-0000-000000000000/"
