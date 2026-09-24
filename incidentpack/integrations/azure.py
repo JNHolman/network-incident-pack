@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Mapping, Optional
 from incidentpack.integrations.http import ApiError, JsonApiClient
 from incidentpack.validation import validate_https_endpoint
 
-
 VM_API_VERSION = "2026-03-01"
 NETWORK_API_VERSION = "2025-09-01"
 _VM_RESOURCE_RE = re.compile(

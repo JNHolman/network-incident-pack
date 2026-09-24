@@ -5,9 +5,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from incidentpack.integrations.azure import AzureNicContext, AzureVmContext
-
 from incidentpack.application import IncidentPackRequest, run_incident_pack
+from incidentpack.integrations.azure import AzureNicContext, AzureVmContext
 from incidentpack.integrations.netbox import NetBoxDevice
 from incidentpack.integrations.servicenow import ServiceNowError
 
@@ -215,6 +214,7 @@ class ApplicationServiceTests(unittest.TestCase):
 
     def test_config_cannot_bypass_runtime_worker_limit(self):
         import yaml
+
         from incidentpack.validation import MAX_WORKERS
 
         with tempfile.TemporaryDirectory() as tmpdir:

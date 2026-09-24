@@ -2,7 +2,6 @@ import unittest
 
 from incidentpack.parsers.routes import parse_route_output
 
-
 LINUX = """default via 192.168.1.1 dev eth0 proto dhcp metric 100
 10.20.0.0/16 via 192.168.1.254 dev eth0 metric 50
 192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.25 metric 100

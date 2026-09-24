@@ -31,8 +31,16 @@ jobs:
       - name: Install project and runtime dependencies
         run: python -m pip install -e .
 
+      - name: Verify tracked-file release hygiene
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)(\.venv|__pycache__|[^/]+\.egg-info)(/|$)'; then
+            echo "Tracked local/build artifacts must not be committed." >&2
+            exit 1
+          fi
+
       - name: Verify source compiles
-        run: python -m compileall -q incident_pack.py incidentpack lab
+        run: python -m compileall -q incident_pack.py incidentpack lab scripts
 
       - name: Verify package entry points
         run: |
@@ -53,3 +61,29 @@ jobs:
 
       - name: Run live loopback success/failure matrix
         run: python -m lab.live_demo --out-dir /tmp/incident-pack-live-demo
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install developer checks
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run Ruff
+        run: ruff check incident_pack.py incidentpack lab scripts tests
+
+      - name: Build and verify release archive
+        shell: bash
+        run: |
+          ./scripts/build_release.sh HEAD dist
+          test -n "$(find dist -maxdepth 1 -name 'network-incident-pack-v*.zip' -print -quit)"

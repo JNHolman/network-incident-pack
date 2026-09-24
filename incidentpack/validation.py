@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from urllib.parse import urlsplit
-
 from typing import List, Sequence
-
+from urllib.parse import urlsplit
 
 MAX_PORTS_PER_RUN = 32
 MAX_COMMAND_TIMEOUT_SECONDS = 60
@@ -86,6 +84,13 @@ def validate_https_endpoint(value: str, label: str) -> str:
     candidate = value.strip().rstrip("/")
     if not candidate:
         raise ValueError(f"{label} cannot be empty.")
+    if any(char.isspace() or ord(char) < 32 for char in candidate):
+        raise ValueError(f"{label} cannot contain whitespace or control characters.")
+    if "\\" in candidate:
+        raise ValueError(f"{label} cannot contain backslashes.")
+    if not candidate.isascii():
+        raise ValueError(f"{label} must use an ASCII hostname/URL.")
+
     parsed = urlsplit(candidate)
     if parsed.scheme.lower() != "https":
         raise ValueError(f"{label} must use https://")
@@ -95,6 +100,10 @@ def validate_https_endpoint(value: str, label: str) -> str:
         raise ValueError(f"{label} cannot contain embedded credentials.")
     if parsed.query or parsed.fragment:
         raise ValueError(f"{label} cannot contain a query string or fragment.")
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError(f"{label} contains an invalid port.") from exc
     return candidate
 
 
@@ -107,6 +116,8 @@ def validate_host(value: str, label: str = "target") -> str:
     candidate = value.strip()
     if not candidate:
         raise ValueError(f"{label} cannot be empty.")
+    if not candidate.isascii():
+        raise ValueError(f"{label} must use ASCII hostname/IP characters.")
     if candidate.startswith("-"):
         raise ValueError(f"{label} cannot begin with '-'.")
     if any(char.isspace() or ord(char) < 32 for char in candidate):

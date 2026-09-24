@@ -4,7 +4,6 @@ from pathlib import Path
 
 from incidentpack import __version__
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 

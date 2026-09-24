@@ -1,91 +1,136 @@
 # Network Incident Pack
 
-A Python network/infrastructure incident automation tool that standardizes first-pass host-side evidence collection into **structured JSON** and **ticket-ready Markdown**.
+[![CI](https://github.com/JNHolman/servicenow-incident-pack/actions/workflows/ci.yml/badge.svg)](https://github.com/JNHolman/servicenow-incident-pack/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/JNHolman/servicenow-incident-pack/actions/workflows/codeql.yml/badge.svg)](https://github.com/JNHolman/servicenow-incident-pack/actions/workflows/codeql.yml)
 
-It is designed around the checks engineers actually use during initial triage: DNS, reachability, path, TCP service access, interfaces, routes, neighbors, and local socket state. Raw evidence is retained while supported outputs are parsed into deterministic operational summaries.
+A Python network/infrastructure incident automation tool that turns first-pass troubleshooting evidence into structured, repeatable incident reports.
 
-## Core capabilities
+It collects host-side interface, Layer 2–4, and DNS evidence an engineer would normally gather manually, preserves the raw output, parses supported checks into normalized data, applies explicit health rules, and produces JSON + ticket-ready Markdown. Optional NetBox, Azure ARM, and ServiceNow integrations add operational context without changing the core troubleshooting workflow.
 
-- Linux, macOS, and Windows host-side collection
-- DNS resolution using Python sockets
-- ping packet-loss/latency parsing
-- traceroute/tracert hop parsing
-- TCP connectivity checks with selective retries
-- structured interface, route, and ARP/neighbor evidence
+## See it run
+
+The repo includes a **live local sandbox** that creates real socket/DNS conditions and runs the normal Incident Pack collection path against them.
+
+```bash
+python -m lab.live_demo --out-dir ./lab-output
+```
+
+Example from a real live-sandbox run (ports are allocated dynamically):
+
+```text
+Live Incident Pack demo matrix
+Target: 127.0.0.1
+Ports: HTTP=45047, TCP=33755, refused=39097
+PASS healthy          status=healthy  reachability=healthy
+PASS service-refused  status=degraded reachability=healthy
+PASS dns-failure      status=degraded reachability=healthy
+```
+
+The demo intentionally produces both passing and failing conditions:
+
+| Case | Real condition | Result |
+| --- | --- | --- |
+| `healthy` | DNS resolves and both TCP services accept connections | `HEALTHY` |
+| `service-refused` | Host responds but one requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
+| `dns-failure` | IP/TCP path works while a `.invalid` hostname fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
+
+These are **not prebuilt JSON fixtures**. The sandbox uses real localhost listeners, real TCP handshakes/refusals, real DNS resolution failure, the live collectors, parsers, health engine, report validation, and output writers.
+
+Each run writes structured JSON and Markdown under `./lab-output/<case>/`.
+
+A report summary looks like:
+
+```text
+Overall: DEGRADED
+Reachability: HEALTHY
+
+Collection Summary
+Host commands: 6/6 succeeded
+TCP checks: 2/3 connected
+Parser errors: 0
+
+Key Results
+DNS: healthy
+Ping: healthy
+Traceroute: complete
+TCP 443: connected
+TCP 80: connected
+TCP 22: connection refused
+```
+
+For failures that are awkward or unsafe to manufacture locally—such as complete unreachability or a forced collector timeout—the repo also includes deterministic mock scenarios used as repeatable test fixtures. See [Demo Scenarios](docs/DEMO_SCENARIOS.md).
+
+## What it demonstrates
+
+- cross-platform network evidence collection on Linux, macOS, and Windows
+- structured parsing of ping, traceroute/tracert, interfaces, routes, and ARP/neighbor data
+- TCP service testing with selective retries and explicit failure classification
 - bounded `ThreadPoolExecutor` concurrency for independent I/O checks
-- YAML/JSON site and device inventory
-- environment-based credential handling
-- optional read-only NetBox device lookup
-- optional read-only Azure VM/network context enrichment
-- optional explicit ServiceNow work-note update
-- deterministic health and collection-completeness summaries
-- versioned JSON report contract and Markdown reporting
-- deterministic public-safe failure scenarios
-- unit, integration, and CLI smoke tests
-
-The core remains vendor-neutral and location-agnostic. The same collection path can target on-premises, Internet, or cloud-hosted systems; NetBox, Azure, and ServiceNow are optional context/workflow integrations.
+- deterministic reachability and health semantics instead of generated diagnosis
+- YAML/JSON site and device inventory with explicit override precedence
+- environment-based secrets handling and report redaction
+- read-only NetBox device lookup
+- read-only Azure VM/network context enrichment
+- explicit ServiceNow incident work-note updates
+- versioned JSON + Markdown reporting with validation before write/handoff
+- unit, integration, CLI, concurrency, security, and sandbox tests
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    A[CLI / Python caller] --> B[Application service]
-    B --> C[Target + inventory resolution]
-    B --> C2[Optional Azure ARM enrichment]
+flowchart TD
+    A[CLI or Python caller] --> B[Application service]
+    B --> C[Target and inventory resolution]
     B --> D[Evidence collectors]
     D --> E[Structured parsers]
     E --> F[Deterministic health engine]
-    F --> G[Report validation]
-    G --> H[JSON + Markdown]
-    G --> I[Optional ServiceNow update]
-    C2 --> G
+    B --> G[Optional NetBox / Azure context]
+    F --> H[Report validation]
+    G --> H
+    H --> I[JSON + Markdown]
+    H --> J[Optional ServiceNow update]
 ```
+
+The CLI is intentionally thin. The same workflow is available through `run_incident_pack()` for reuse by other automation.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Design Decisions](docs/DESIGN_DECISIONS.md).
 
 ## Install
 
-Requires Python 3.10+. Clone the existing project repository and install it in an isolated environment:
+Requires **Python 3.10+**.
+
+First verify the interpreter you intend to use:
+
+```bash
+python3 --version
+```
+
+If that reports Python 3.9 or older, use an installed 3.10+ executable such as `python3.11` or `python3.12` instead.
 
 ```bash
 git clone https://github.com/JNHolman/servicenow-incident-pack.git
 cd servicenow-incident-pack
-python3 -m venv .venv
+
+PYTHON=python3
+$PYTHON --version   # must be 3.10+
+$PYTHON -m venv .venv
 source .venv/bin/activate
-python3 -m pip install --upgrade pip
-python3 -m pip install -e .
-```
 
-On Windows PowerShell, activate the environment with `.\.venv\Scripts\Activate.ps1`.
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e .
 
-This installs the `incident-pack` console command. The legacy `python3 incident_pack.py` entry point remains supported.
-
-```bash
 incident-pack --version
-incident-pack --help
 ```
 
-## Quick demo
+Windows PowerShell activation:
 
-A deterministic mock run is safe for public demonstrations and does not expose local interface, route, or neighbor information:
-
-```bash
-incident-pack \
-  --target 10.20.30.40 \
-  --dns-name app.example.com \
-  --ports 443 80 22 \
-  --mock \
-  --non-interactive
+```powershell
+.\.venv\Scripts\Activate.ps1
 ```
 
-Outputs:
+## Basic usage
 
-- `incident_pack_<host>_<timestamp>.json`
-- `incident_pack_<host>_<timestamp>.md`
-
-Committed public-safe samples are available in [`examples/`](examples/).
-
-## Live collection
+Live collection:
 
 ```bash
 incident-pack \
@@ -96,65 +141,7 @@ incident-pack \
   --log-level INFO
 ```
 
-Platform-aware commands include:
-
-- **Linux:** `ip addr`, `ip route`, `ip neigh`, `ss -tulpn`
-- **macOS:** `ifconfig`, `netstat -rn`, `arp -an`, `netstat -anv`
-- **Windows:** `ipconfig /all`, `route print`, `arp -a`, `netstat -ano`
-
-Command timeouts, missing executables, OS errors, and non-zero exits are recorded as structured collection evidence instead of terminating the whole incident run.
-
-## Lightweight live sandbox
-
-No Docker or network-device emulator is required. Run the live demo matrix from the repository root:
-
-```bash
-python3 -m lab.live_demo --out-dir ./lab-output
-```
-
-It executes three real loopback cases: healthy services, a deliberately refused TCP service, and DNS failure with working IP/TCP reachability. Each case uses the normal live collector and writes JSON + Markdown.
-
-For manual commands and the exact failure setup, see [Lab Validation](docs/LAB_VALIDATION.md).
-
-## Deterministic incident scenarios
-
-Mock scenarios make failure semantics repeatable without intentionally breaking a live environment:
-
-```bash
-incident-pack --target 10.20.30.40 --ports 443 22 \
-  --mock --mock-scenario service-refused --non-interactive
-
-incident-pack --target 10.20.30.40 --ports 443 22 \
-  --mock --mock-scenario unreachable --non-interactive
-```
-
-Supported scenarios:
-
-- `baseline`
-- `healthy`
-- `dns-failure`
-- `service-refused`
-- `unreachable`
-- `collector-timeout`
-
-See [Demo Scenarios](docs/DEMO_SCENARIOS.md).
-
-## Health semantics
-
-The health engine uses explicit rules rather than generated diagnosis.
-
-Examples:
-
-- ICMP failure does not make a host unreachable when TCP succeeds.
-- `connection_refused` means the requested service failed, but the returned RST is positive reachability evidence.
-- intermediate traceroute timeouts do not fail the path when the destination is reached.
-- collector failures affect **collection quality** independently of **network health**.
-
-Raw command output remains available alongside normalized fields for audit and deeper troubleshooting.
-
-## Inventory-driven execution
-
-Local inventory supports YAML and JSON.
+Inventory-driven collection:
 
 ```bash
 incident-pack \
@@ -163,68 +150,46 @@ incident-pack \
   --non-interactive
 ```
 
-Effective settings use explicit precedence:
+Effective configuration precedence is deterministic:
 
 ```text
 CLI override -> device -> site -> global defaults
 ```
 
-A CLI value such as `--ports 8443 22` overrides configured ports only for that run.
+## Health semantics
 
-## Bounded concurrency and retries
+The tool keeps **network reachability**, **service health**, and **collection quality** separate.
 
-```bash
-incident-pack \
-  --target 10.20.30.40 \
-  --ports 443 22 8443 \
-  --workers 4 \
-  --tcp-timeout 3 \
-  --tcp-attempts 2 \
-  --non-interactive
-```
+Examples:
 
-Independent host commands and TCP checks use bounded thread pools. Results are restored to deterministic configured order even when workers finish out of order.
+- ping failure does not make a target unreachable when TCP succeeds
+- `connection_refused` means the service failed, but the returned RST proves the host is reachable
+- an intermediate `* * *` traceroute hop does not fail a path when the destination is reached
+- a collector failure marks evidence collection incomplete without automatically declaring a network outage
 
-Retries are selective. Transient timeouts/resets may be retried; active connection refusal, invalid configuration, missing executables, and similar deterministic failures are not blindly repeated.
+Raw command output is retained beside the normalized fields so the report still contains the underlying evidence.
 
-### Runtime safety limits
+## Optional operational integrations
 
-One execution is intentionally bounded to incident-triage scale:
+### NetBox
 
-- maximum 32 unique TCP ports
-- maximum 16 collection workers
-- maximum 3 TCP attempts per port
-- maximum 30-second TCP connect timeout
-- maximum 60-second host-command timeout
-
-The same limits apply to CLI overrides and inventory/config values. Run the tool only against infrastructure you own or are authorized to troubleshoot.
-
-## NetBox integration
-
-NetBox lookup is optional and read-only. Credentials are read from environment variables.
+Read-only device lookup can resolve a target and add site/role metadata.
 
 ```bash
 export NETBOX_URL="https://netbox.example.com"
 export NETBOX_TOKEN="..."
 
-incident-pack \
-  --netbox-device edge-01 \
+incident-pack --netbox-device edge-01 \
   --config config/inventory.example.yaml \
   --non-interactive
 ```
 
-The adapter looks up a device through `/api/dcim/devices/`, uses its primary IP as the target, and enriches the report with site/role metadata. Local config can still supply service-port policy.
+### Azure
 
-## Azure network context enrichment
-
-Azure enrichment is optional and read-only. It does not provision resources or replace the normal network checks. The target is still diagnosed with DNS, ping, traceroute, TCP, and local host evidence; Azure Resource Manager adds cloud-side context for the VM and its attached network interfaces.
-
-Obtain a short-lived ARM token with Azure CLI and pass the VM resource ID explicitly:
+Azure Resource Manager enrichment is read-only and adds VM/NIC/VNet/subnet/NSG/IP context to the same incident report. It does **not** provision infrastructure.
 
 ```bash
 export AZURE_ACCESS_TOKEN="$(az account get-access-token --resource-type arm --query accessToken -o tsv)"
-VM_ID="$(az vm show -g incident-pack-lab -n ip-lab-vm --query id -o tsv)"
-PUBLIC_IP="$(az vm show -d -g incident-pack-lab -n ip-lab-vm --query publicIps -o tsv)"
 
 incident-pack \
   --target "$PUBLIC_IP" \
@@ -233,13 +198,11 @@ incident-pack \
   --non-interactive
 ```
 
-When available, the report adds: Azure region, resource group, VM size/state, NIC names, private/public IPs, VNet/subnet names, and attached NSG name. Subscription IDs and bearer tokens are intentionally omitted from report output.
+See [Azure Lab](docs/AZURE_LAB.md). Live Azure-subscription validation is intentionally documented separately from mocked ARM contract tests.
 
-See [Azure Lab](docs/AZURE_LAB.md) for a disposable VM validation workflow.
+### ServiceNow
 
-## ServiceNow integration
-
-ServiceNow mutation is deliberately explicit:
+Ticket mutation only occurs when explicitly requested:
 
 ```bash
 export SERVICENOW_URL="https://instance.service-now.com"
@@ -249,92 +212,91 @@ export SERVICENOW_PASSWORD="..."
 incident-pack \
   --target 10.20.30.40 \
   --ports 443 22 \
-  --non-interactive \
-  --servicenow-update INC0012345
+  --servicenow-update INC0012345 \
+  --non-interactive
 ```
 
-The client resolves the incident number to `sys_id` and appends the generated Markdown to `work_notes`. Local evidence is still retained if the external update fails.
+If the ServiceNow update fails, the local JSON and Markdown evidence remain available.
 
-Real credentials belong in environment variables only. `.env.example` documents variable names without values.
+## Safety and security
 
-## Security
+The project is intentionally bounded to incident-triage scale:
 
-The project avoids shell execution (`shell=True`), validates targets before passing them to operating-system network commands, requires HTTPS integration endpoints, keeps TLS verification enabled, bounds concurrency/retries/timeouts, and sanitizes report/integration error content before external handoff. GitHub configuration includes read-only CI permissions, Dependabot update checks, dependency review, and CodeQL analysis.
+- maximum 32 unique TCP ports
+- maximum 16 workers
+- maximum 3 TCP attempts per port
+- maximum 30-second TCP connect timeout
+- maximum 60-second host-command timeout
+- no `shell=True`
+- validated host/DNS inputs before OS commands
+- HTTPS-only credentialed integrations with TLS verification enabled
+- environment-based credentials
+- report/API-error secret redaction
+- read-only CI permissions, CodeQL, Dependabot, and dependency review
 
-See [SECURITY.md](SECURITY.md) for authorization boundaries, credential handling, and vulnerability reporting.
+Run the tool only against infrastructure you own or are authorized to troubleshoot. See [SECURITY.md](SECURITY.md).
 
-## Reusable Python API
 
-The CLI delegates to the same application service available to other automation:
+## Code quality gates
 
-```python
-from incidentpack.application import IncidentPackRequest, run_incident_pack
+The configured static-quality check is enforced in CI rather than merely documented:
 
-result = run_incident_pack(
-    IncidentPackRequest(
-        target="10.20.30.40",
-        ports=[443, 22],
-        non_interactive=True,
-        out_dir="./reports",
-    )
-)
-
-print(result.evidence["health"])
-print(result.output_paths["json"])
+```bash
+python -m pip install -e ".[dev]"
+ruff check incident_pack.py incidentpack lab scripts tests
 ```
 
-Collectors and integration clients can be injected for tests without routing through `argparse` or subprocess execution.
-
-## Report contract
-
-The current JSON report uses `schema_version: 2` and includes:
-
-- metadata and incident context
-- inventory context
-- collection policy
-- DNS/TCP evidence
-- raw command evidence
-- normalized ping/traceroute/interface/route/neighbor evidence
-- deterministic health summary
-- deterministic collection summary
-- optional cloud context and integration status
-
-Before output or external handoff, report validation checks required fields, status values, collection-summary consistency, JSON serializability, and secret-bearing keys. Recognizable Bearer/Basic authorization and credential-assignment patterns are also redacted from arbitrary report text and API error bodies. JSON and Markdown files are written atomically per file with temporary-file replacement.
+CI also builds the release ZIP from the tracked Git tree and inspects it for local environments, Git metadata, caches, and build artifacts.
 
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
-The suite covers parser formats, target validation, timeout/error classification, retry policy, concurrent result ordering, inventory precedence, health semantics, report validation/redaction, HTTP retry behavior, NetBox/Azure/ServiceNow adapters, scenario behavior, application-service injection, local sandbox endpoints, and CLI execution.
+The current suite contains **194 tests** covering parsers, error classification, retries, deterministic concurrency ordering, inventory precedence, health semantics, reporting/redaction, NetBox/Azure/ServiceNow adapters, CLI behavior, and the live sandbox.
 
 GitHub Actions runs the suite on Python 3.10, 3.11, and 3.12.
 
+## Release packaging
+
+Release archives are built from the tracked Git tree rather than by zipping a working directory:
+
+```bash
+./scripts/build_release.sh v1.1.3
+```
+
+That keeps `.git`, virtual environments, caches, generated reports, and build metadata out of distributable ZIPs.
+
 ## Validation scope
 
-Validated in this repository:
+**Validated:**
 
-- deterministic mock scenarios
+- real local TCP/DNS sandbox execution
 - Linux/macOS/Windows parser fixtures
-- real local loopback HTTP/TCP sandbox endpoints
-- local live Incident Pack execution against the loopback sandbox
-- YAML/JSON inventory loading and precedence
-- mocked REST contract tests for NetBox, Azure Resource Manager, and ServiceNow
-- compile checks, application tests, and CLI smoke tests
+- deterministic mock failure scenarios
+- YAML/JSON inventory resolution
+- NetBox/Azure/ServiceNow REST contract tests with mocked HTTP responses
+- application/CLI integration and security guardrails
 
-Not claimed as validated:
+**Not represented as production validation:**
 
-- active production network devices
-- SSH/API collection from Cisco, Juniper, Palo Alto, Fortinet, Aruba, or similar platforms
-- production organization NetBox/ServiceNow environments
-- live Azure Resource Manager enrichment against the user's subscription (see Azure Lab for the validation procedure)
+- active Cisco/Juniper/Palo Alto/Fortinet device collection
+- production organization NetBox or ServiceNow environments
+- live Azure ARM enrichment against a production subscription
 
-Those boundaries are intentional. This is a host-side network incident automation tool with optional operational integrations, not a multi-vendor network management platform.
+The project is a host-side network/infrastructure incident automation tool, not a multi-vendor network-management platform or an infrastructure-provisioning system.
 
-## Project scope
+## Documentation
 
-Cloud-specific additions must remain tied to troubleshooting context. Azure enrichment is read-only operational metadata, not provisioning. General cloud-platform architecture, Kubernetes, and unrelated DevOps infrastructure remain outside this repository.
+| Document | Purpose |
+| --- | --- |
+| [Architecture](docs/ARCHITECTURE.md) | modules, data flow, report boundary |
+| [Lab Validation](docs/LAB_VALIDATION.md) | live localhost success/failure cases |
+| [Demo Scenarios](docs/DEMO_SCENARIOS.md) | deterministic edge-case fixtures |
+| [Azure Lab](docs/AZURE_LAB.md) | real cloud validation procedure |
+| [Design Decisions](docs/DESIGN_DECISIONS.md) | key engineering choices |
+| [Security](SECURITY.md) | authorization, secrets, vulnerability reporting |
 
 ## License
 

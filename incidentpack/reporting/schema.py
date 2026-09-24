@@ -5,7 +5,9 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Mapping, Sequence
-from typing import Any, Dict, List, TypedDict
+from typing import Any, List, TypedDict
+
+from incidentpack.security import redact_secret_text
 
 CURRENT_SCHEMA_VERSION = 2
 _ALLOWED_HEALTH = {"healthy", "degraded", "failed", "unknown"}
@@ -20,8 +22,6 @@ _FORBIDDEN_SECRET_KEYS = {
 }
 _PARSE_SECTIONS = ("interfaces", "routes", "neighbors", "ping", "traceroute")
 
-
-from incidentpack.security import redact_secret_text
 
 
 def sanitize_report(value: Any) -> Any:
