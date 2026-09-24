@@ -79,6 +79,7 @@ class IntegrationEndpointValidationTests(unittest.TestCase):
             "https://a.com\\@evil.com",
             "https://user%3Apass@example.com",
             "https://example.com:99999",
+            "https://good.com%00.evil.com",
             "https://examp\u200ble.com",
         ]
         for value in bad_values:

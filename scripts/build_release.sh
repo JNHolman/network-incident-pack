@@ -9,8 +9,8 @@ out_dir="${2:-dist}"
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "error: working tree has uncommitted changes; commit/stash them before packaging" >&2
+if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
+  echo "error: working tree has tracked or untracked changes; commit/stash them before packaging" >&2
   exit 1
 fi
 

@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 FORBIDDEN_PARTS = {".git", ".venv", "__pycache__"}
 FORBIDDEN_SUFFIXES = (".egg-info", ".pyc", ".pyo")
 FORBIDDEN_NAMES = {".env"}
+REQUIRED_RELATIVE_FILES = {"README.md", "SECURITY.md", "docs/live_demo_real.png"}
 
 
 def verify_archive(path: Path) -> None:
@@ -29,6 +30,12 @@ def verify_archive(path: Path) -> None:
     root = next(iter(roots))
     if re.fullmatch(r"network-incident-pack-v\d+\.\d+\.\d+", root) is None:
         raise ValueError(f"Unexpected release root directory: {root}")
+
+    relative_files = {str(PurePosixPath(name).relative_to(root)) for name in files}
+    missing = sorted(REQUIRED_RELATIVE_FILES - relative_files)
+    if missing:
+        preview = "\n".join(f"  - {item}" for item in missing)
+        raise ValueError(f"Release archive is missing required files:\n{preview}")
 
     violations: list[str] = []
     for name in files:

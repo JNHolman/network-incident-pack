@@ -96,6 +96,7 @@ def validate_https_endpoint(value: str, label: str) -> str:
         raise ValueError(f"{label} must use https://")
     if not parsed.hostname:
         raise ValueError(f"{label} must include a hostname.")
+    validate_host(parsed.hostname, f"{label} hostname")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{label} cannot contain embedded credentials.")
     if parsed.query or parsed.fragment:
