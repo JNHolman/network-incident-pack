@@ -1,4 +1,5 @@
 {
+  "schema_version": 2,
   "meta": {
     "timestamp_utc": "2026-01-29T06:07:27+00:00",
     "host": "demo-host",
@@ -10,7 +11,15 @@
       80,
       22
     ],
-    "mode": "mock"
+    "mode": "mock",
+    "scenario": "baseline"
+  },
+  "inventory": {},
+  "collection": {
+    "max_workers": 4,
+    "command_timeout_seconds": 15,
+    "tcp_timeout_seconds": 3.0,
+    "tcp_max_attempts": 2
   },
   "context": {
     "impact": "",
@@ -31,39 +40,270 @@
       "host": "10.20.30.40",
       "port": 443,
       "ok": true,
-      "error": ""
+      "error": "",
+      "error_type": "",
+      "attempts": 1,
+      "duration_ms": 1.0
     },
     {
       "host": "10.20.30.40",
       "port": 80,
       "ok": true,
-      "error": ""
+      "error": "",
+      "error_type": "",
+      "attempts": 1,
+      "duration_ms": 1.0
     },
     {
       "host": "10.20.30.40",
       "port": 22,
       "ok": false,
-      "error": "Connection refused"
+      "error": "ConnectionRefusedError: Connection refused",
+      "error_type": "connection_refused",
+      "attempts": 1,
+      "duration_ms": 1.0
     }
   ],
   "commands": [
     {
-      "cmd": "ping ...",
+      "cmd": "ip addr",
       "rc": 0,
-      "stdout": "PING output (mock)",
-      "stderr": ""
+      "ok": true,
+      "stdout": "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 state UNKNOWN\n    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n    inet 127.0.0.1/8 scope host lo\n2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP\n    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff\n    inet 192.168.1.25/24 brd 192.168.1.255 scope global eth0",
+      "stderr": "",
+      "error_type": "",
+      "timed_out": false,
+      "duration_ms": 8.0
     },
     {
-      "cmd": "traceroute ...",
+      "cmd": "ip route",
       "rc": 0,
-      "stdout": "TRACEROUTE output (mock)",
-      "stderr": ""
+      "ok": true,
+      "stdout": "default via 192.168.1.1 dev eth0 proto dhcp metric 100\n192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.25 metric 100",
+      "stderr": "",
+      "error_type": "",
+      "timed_out": false,
+      "duration_ms": 4.0
     },
     {
-      "cmd": "ip/ifconfig ...",
+      "cmd": "ip neigh",
       "rc": 0,
-      "stdout": "Interface output (mock)",
-      "stderr": ""
+      "ok": true,
+      "stdout": "192.168.1.1 dev eth0 lladdr 00:11:22:33:44:55 REACHABLE",
+      "stderr": "",
+      "error_type": "",
+      "timed_out": false,
+      "duration_ms": 3.0
+    },
+    {
+      "cmd": "ping -c 4 10.20.30.40",
+      "rc": 0,
+      "ok": true,
+      "stdout": "PING 10.20.30.40 (10.20.30.40) 56(84) bytes of data.\n64 bytes from 10.20.30.40: icmp_seq=1 ttl=57 time=22.1 ms\n\n--- 10.20.30.40 ping statistics ---\n4 packets transmitted, 4 received, 0% packet loss, time 3004ms\nrtt min/avg/max/mdev = 22.100/23.250/24.400/0.900 ms",
+      "stderr": "",
+      "error_type": "",
+      "timed_out": false,
+      "duration_ms": 12.0
+    },
+    {
+      "cmd": "traceroute -n 10.20.30.40",
+      "rc": 0,
+      "ok": true,
+      "stdout": "traceroute to 10.20.30.40 (10.20.30.40), 30 hops max, 60 byte packets\n 1  192.168.1.1  1.100 ms  1.000 ms  0.900 ms\n 2  * * *\n 3  10.20.0.1  8.100 ms  8.000 ms  7.900 ms\n 4  10.20.30.40  22.400 ms  22.200 ms  22.300 ms",
+      "stderr": "",
+      "error_type": "",
+      "timed_out": false,
+      "duration_ms": 18.0
+    },
+    {
+      "cmd": "ss -tulpn",
+      "rc": 0,
+      "ok": true,
+      "stdout": "Netid State  Local Address:Port  Peer Address:Port",
+      "stderr": "",
+      "error_type": "",
+      "timed_out": false,
+      "duration_ms": 5.0
     }
-  ]
+  ],
+  "interfaces": {
+    "status": "healthy",
+    "interface_count": 2,
+    "up_count": 2,
+    "usable_up_count": 1,
+    "interfaces": [
+      {
+        "name": "lo",
+        "state": "up",
+        "is_up": true,
+        "is_loopback": true,
+        "mac": "00:00:00:00:00:00",
+        "ipv4": [
+          "127.0.0.1"
+        ],
+        "ipv6": []
+      },
+      {
+        "name": "eth0",
+        "state": "up",
+        "is_up": true,
+        "is_loopback": false,
+        "mac": "02:42:ac:11:00:02",
+        "ipv4": [
+          "192.168.1.25"
+        ],
+        "ipv6": []
+      }
+    ],
+    "parse_error": "",
+    "execution_error_type": ""
+  },
+  "routes": {
+    "status": "healthy",
+    "route_count": 2,
+    "default_route": true,
+    "default_gateway": "192.168.1.1",
+    "default_interface": "eth0",
+    "routes": [
+      {
+        "destination": "default",
+        "gateway": "192.168.1.1",
+        "interface": "eth0",
+        "metric": 100,
+        "is_default": true
+      },
+      {
+        "destination": "192.168.1.0/24",
+        "gateway": "",
+        "interface": "eth0",
+        "metric": 100,
+        "is_default": false
+      }
+    ],
+    "parse_error": "",
+    "execution_error_type": ""
+  },
+  "neighbors": {
+    "status": "healthy",
+    "neighbor_count": 1,
+    "unresolved_count": 0,
+    "neighbors": [
+      {
+        "address": "192.168.1.1",
+        "mac": "00:11:22:33:44:55",
+        "interface": "eth0",
+        "state": "reachable"
+      }
+    ],
+    "parse_error": "",
+    "execution_error_type": ""
+  },
+  "ping": {
+    "reachable": true,
+    "status": "healthy",
+    "packets_sent": 4,
+    "packets_received": 4,
+    "packet_loss_percent": 0.0,
+    "min_latency_ms": 22.1,
+    "avg_latency_ms": 23.25,
+    "max_latency_ms": 24.4,
+    "jitter_ms": 0.9,
+    "parse_error": "",
+    "execution_error_type": ""
+  },
+  "traceroute": {
+    "status": "complete",
+    "target_reached": true,
+    "target_address": "10.20.30.40",
+    "hop_count": 4,
+    "responding_hops": 3,
+    "timeout_hops": 1,
+    "hops": [
+      {
+        "hop": 1,
+        "address": "192.168.1.1",
+        "latencies_ms": [
+          1.1,
+          1.0,
+          0.9
+        ],
+        "timed_out": false
+      },
+      {
+        "hop": 2,
+        "address": null,
+        "latencies_ms": [],
+        "timed_out": true
+      },
+      {
+        "hop": 3,
+        "address": "10.20.0.1",
+        "latencies_ms": [
+          8.1,
+          8.0,
+          7.9
+        ],
+        "timed_out": false
+      },
+      {
+        "hop": 4,
+        "address": "10.20.30.40",
+        "latencies_ms": [
+          22.4,
+          22.2,
+          22.3
+        ],
+        "timed_out": false
+      }
+    ],
+    "parse_error": "",
+    "execution_error_type": ""
+  },
+  "health": {
+    "status": "degraded",
+    "reachability": "healthy",
+    "components": {
+      "dns": {
+        "status": "healthy",
+        "detail": "DNS returned one or more answers"
+      },
+      "ping": {
+        "status": "healthy",
+        "detail": "Ping status is healthy"
+      },
+      "traceroute": {
+        "status": "complete",
+        "detail": "Traceroute status is complete"
+      },
+      "tcp": {
+        "status": "degraded",
+        "detail": "2/3 requested TCP checks connected"
+      },
+      "interfaces": {
+        "status": "healthy",
+        "detail": "Interface status is healthy"
+      },
+      "routes": {
+        "status": "healthy",
+        "detail": "Route status is healthy"
+      },
+      "neighbors": {
+        "status": "healthy",
+        "detail": "Neighbor status is healthy"
+      }
+    },
+    "findings": [
+      "2/3 requested TCP checks connected"
+    ]
+  },
+  "collection_summary": {
+    "commands_total": 6,
+    "commands_succeeded": 6,
+    "commands_failed": 0,
+    "commands_timed_out": 0,
+    "tcp_total": 3,
+    "tcp_succeeded": 2,
+    "tcp_failed": 1,
+    "parser_errors": 0
+  }
 }

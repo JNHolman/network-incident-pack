@@ -1,0 +1,29 @@
+version: 1
+
+defaults:
+  command_timeout: 15
+  max_workers: 4
+  tcp_timeout: 3.0
+  tcp_attempts: 2
+  ports: [443, 80, 22]
+
+sites:
+  louisville-lab:
+    description: Public-safe demo site
+    default_ports: [443, 22]
+    dns_servers:
+      - 10.20.0.53
+      - 10.20.0.54
+
+devices:
+  app-demo-01:
+    address: 10.20.30.40
+    dns_name: app.example.com
+    site: louisville-lab
+    role: application-server
+
+  edge-demo-01:
+    address: 10.20.0.1
+    site: louisville-lab
+    role: edge-router
+    ports: [22, 443]
