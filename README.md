@@ -45,7 +45,6 @@ PASS dns-failure      status=degraded reachability=healthy
 | `service-refused` | Host responds but a requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
 | `dns-failure` | IP/TCP path works while the requested DNS name fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
 
-![Network Incident Pack live sandbox](docs/live_demo_real.png)
 
 The sandbox uses real localhost listeners, real TCP handshakes/refusals, real DNS resolution, the normal collectors/parsers, the health engine, report validation, and output writers. It is separate from the deterministic mock scenarios used for edge cases that are awkward or unsafe to manufacture locally.
 
