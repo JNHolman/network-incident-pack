@@ -19,8 +19,8 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/JNHolman/servicenow-incident-pack"
-Issues = "https://github.com/JNHolman/servicenow-incident-pack/issues"
+Repository = "https://github.com/JNHolman/network-incident-pack"
+Issues = "https://github.com/JNHolman/network-incident-pack/issues"
 
 [project.scripts]
 incident-pack = "incidentpack.cli:main"
