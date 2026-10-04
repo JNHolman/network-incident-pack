@@ -165,7 +165,7 @@ class IncidentPackCliSmokeTests(unittest.TestCase):
             self.assertIn("Site: `louisville-lab`", markdown)
 
     def test_inventory_cli_allows_explicit_port_override(self):
-        config_path = REPO_ROOT / "config" / "inventory.example.json"
+        config_path = REPO_ROOT / "config" / "inventory.example.yaml"
         with tempfile.TemporaryDirectory() as tmpdir:
             command = [
                 sys.executable,
