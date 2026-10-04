@@ -319,12 +319,13 @@ def collect_live_evidence(
             result=parsed,
         )
 
-    command_results = run_host_commands(
-        commands,
-        timeout=timeout,
-        max_workers=max_workers,
-        progress_callback=host_progress if progress_callback is not None else None,
-    )
+    host_kwargs: Dict[str, Any] = {
+        "timeout": timeout,
+        "max_workers": max_workers,
+    }
+    if progress_callback is not None:
+        host_kwargs["progress_callback"] = host_progress
+    command_results = run_host_commands(commands, **host_kwargs)
 
     def tcp_progress(
         state: str,
@@ -338,14 +339,14 @@ def collect_live_evidence(
             result=result or {},
         )
 
-    tcp_results = run_tcp_checks(
-        target,
-        ports,
-        timeout=tcp_timeout,
-        max_attempts=tcp_attempts,
-        max_workers=max_workers,
-        progress_callback=tcp_progress if progress_callback is not None else None,
-    )
+    tcp_kwargs: Dict[str, Any] = {
+        "timeout": tcp_timeout,
+        "max_attempts": tcp_attempts,
+        "max_workers": max_workers,
+    }
+    if progress_callback is not None:
+        tcp_kwargs["progress_callback"] = tcp_progress
+    tcp_results = run_tcp_checks(target, ports, **tcp_kwargs)
 
     evidence: Dict[str, Any] = {
         "schema_version": REPORT_SCHEMA_VERSION,
