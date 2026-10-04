@@ -18,6 +18,7 @@ from incidentpack.evidence import (
     DEFAULT_MAX_WORKERS,
     DEFAULT_TCP_ATTEMPTS,
     DEFAULT_TCP_TIMEOUT,
+    ProgressCallback,
     collect_live_evidence,
     mock_evidence,
 )
@@ -196,6 +197,7 @@ def run_incident_pack(
     azure_client_factory: Optional[Callable[[AzureSettings], AzureClient]] = None,
     mock_builder: Callable[..., Dict[str, Any]] = mock_evidence,
     live_collector: Callable[..., Dict[str, Any]] = collect_live_evidence,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> IncidentPackResult:
     """Execute one complete incident-pack workflow and return a reusable result object."""
     resolved_netbox_factory = netbox_client_factory or NetBoxClient
@@ -233,7 +235,13 @@ def run_incident_pack(
         else:
             evidence = mock_builder(**common, scenario=scenario)
     else:
-        evidence = live_collector(non_interactive=request.non_interactive, **common)
+        live_kwargs: Dict[str, Any] = {
+            "non_interactive": request.non_interactive,
+            **common,
+        }
+        if progress_callback is not None:
+            live_kwargs["progress_callback"] = progress_callback
+        evidence = live_collector(**live_kwargs)
 
     # Redact recognizable credential content before validation or any external handoff.
     evidence = sanitize_report(evidence)
@@ -280,11 +288,15 @@ def run_incident_pack(
     # Integrations mutate the report, so sanitize and enforce the contract again.
     evidence = sanitize_report(evidence)
     validate_report(evidence)
+    if progress_callback is not None:
+        progress_callback("report_started", {})
     output_paths = write_outputs(
         evidence,
         out_dir=request.out_dir,
         md_max_lines=request.md_max_lines,
     )
+    if progress_callback is not None:
+        progress_callback("report_completed", {"output_paths": output_paths})
     logger.info(
         "Incident pack complete json=%s markdown=%s",
         output_paths["json"],
