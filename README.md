@@ -102,7 +102,7 @@ The core Incident Pack works without external systems.
 | Azure ARM | add VM and cloud network control-plane context | read-only |
 | ServiceNow | add the finished incident summary to an existing ticket | explicit write only |
 
-Azure enrichment does **not** provision infrastructure. The adapter is implemented and covered by mocked HTTP contract tests; real Azure ARM validation is the remaining cloud-validation step.
+Azure enrichment does **not** provision infrastructure. The adapter is covered by HTTP contract tests and has also been validated against a live Azure VM from an external macOS client.
 
 ## Engineering
 
@@ -121,11 +121,12 @@ Current validation includes:
 - deterministic failure scenarios
 - inventory-resolution tests
 - NetBox/Azure/ServiceNow contract tests with mocked HTTP responses
+- live Azure VM validation with ARM enrichment for VM/NIC/IP/VNet/subnet/NSG context
 - CLI/application integration tests
 - security/input-validation tests
 - release-archive verification
 
-Real Azure VM/network validation is planned but not yet represented as completed validation.
+Live Azure validation is now complete for a disposable Ubuntu VM. The external run kept reachability **HEALTHY** even when ICMP failed, traceroute did not reach the target, and one requested TCP service timed out because another TCP service connected successfully. ARM enrichment returned the VM, NIC, private/public IPs, VNet, subnet, NSG, VM size, provisioning state, and power state. See the [sanitized Azure validation evidence](examples/azure_validation.md).
 
 The project is a host-side network/infrastructure incident automation tool. It is not represented as a multi-vendor network-management platform, an infrastructure-provisioning system, or validation against production organization environments.
 
