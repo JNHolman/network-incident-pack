@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import platform
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from incidentpack.collectors.host import run_host_commands
 from incidentpack.collectors.tcp import run_tcp_checks
@@ -24,6 +24,73 @@ DEFAULT_MAX_WORKERS = 4
 REPORT_SCHEMA_VERSION = CURRENT_SCHEMA_VERSION
 MOCK_TIMESTAMP_UTC = "2026-01-29T06:07:27+00:00"
 MOCK_OS = "linux"
+
+ProgressCallback = Callable[[str, Dict[str, Any]], None]
+
+
+def _emit_progress(
+    callback: Optional[ProgressCallback],
+    event: str,
+    **payload: Any,
+) -> None:
+    if callback is not None:
+        callback(event, payload)
+
+
+def _command_section(command: Sequence[str]) -> str:
+    if not command:
+        return "command"
+    name = command[0].lower()
+    if name in {"ipconfig", "ifconfig"} or (
+        name == "ip" and len(command) > 1 and command[1] == "addr"
+    ):
+        return "interfaces"
+    if name == "route" or (name == "netstat" and "-rn" in command) or (
+        name == "ip" and len(command) > 1 and command[1] == "route"
+    ):
+        return "routes"
+    if name == "arp" or (
+        name == "ip" and len(command) > 1 and command[1] == "neigh"
+    ):
+        return "neighbors"
+    if name == "ping":
+        return "ping"
+    if name in {"traceroute", "tracert"}:
+        return "traceroute"
+    if name in {"ss", "netstat"}:
+        return "sockets"
+    return "command"
+
+
+def _parse_command_evidence(
+    command: Sequence[str],
+    command_result: Dict[str, Any],
+    *,
+    os_name: str,
+    target: str,
+) -> tuple[str, Dict[str, Any]]:
+    section = _command_section(command)
+    if section == "interfaces":
+        parsed = parse_interface_command_result(command_result, os_name=os_name)
+    elif section == "routes":
+        parsed = parse_route_command_result(command_result, os_name=os_name)
+    elif section == "neighbors":
+        parsed = parse_neighbor_command_result(command_result, os_name=os_name)
+    elif section == "ping":
+        parsed = parse_ping_command_result(command_result)
+    elif section == "traceroute":
+        parsed = parse_traceroute_command_result(command_result, target=target)
+    elif section == "sockets":
+        parsed = {
+            "status": "captured" if command_result.get("ok") else "failed",
+            "error_type": str(command_result.get("error_type") or ""),
+        }
+    else:
+        parsed = {
+            "status": "complete" if command_result.get("ok") else "failed",
+            "error_type": str(command_result.get("error_type") or ""),
+        }
+    return section, parsed
 
 
 def mock_evidence(
@@ -188,25 +255,14 @@ def _attach_structured_command_evidence(
 ) -> None:
     """Parse known command results into normalized sections without losing raw evidence."""
     for command, command_result in zip(commands, command_results):
-        if not command:
-            continue
-        command_name = command[0].lower()
-        if command_name in {"ipconfig", "ifconfig"} or (
-            command_name == "ip" and len(command) > 1 and command[1] == "addr"
-        ):
-            evidence["interfaces"] = parse_interface_command_result(command_result, os_name=os_name)
-        elif command_name == "route" or (
-            command_name == "netstat" and "-rn" in command
-        ) or (command_name == "ip" and len(command) > 1 and command[1] == "route"):
-            evidence["routes"] = parse_route_command_result(command_result, os_name=os_name)
-        elif command_name == "arp" or (
-            command_name == "ip" and len(command) > 1 and command[1] == "neigh"
-        ):
-            evidence["neighbors"] = parse_neighbor_command_result(command_result, os_name=os_name)
-        elif command_name == "ping":
-            evidence["ping"] = parse_ping_command_result(command_result)
-        elif command_name in {"traceroute", "tracert"}:
-            evidence["traceroute"] = parse_traceroute_command_result(command_result, target=target)
+        section, parsed = _parse_command_evidence(
+            command,
+            command_result,
+            os_name=os_name,
+            target=target,
+        )
+        if section != "sockets" and section != "command":
+            evidence[section] = parsed
 
 
 def collect_live_evidence(
@@ -220,11 +276,67 @@ def collect_live_evidence(
     tcp_timeout: float = DEFAULT_TCP_TIMEOUT,
     tcp_attempts: int = DEFAULT_TCP_ATTEMPTS,
     max_workers: int = DEFAULT_MAX_WORKERS,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Dict[str, Any]:
     """Collect live host-side evidence with bounded concurrency for independent checks."""
     host = platform.node() or "unknown-host"
     os_name = detect_os()
     commands = os_commands(target, os_name=os_name)
+
+    dns_result: Dict[str, Any] = {}
+    if dns_name:
+        _emit_progress(progress_callback, "dns_started", name=dns_name)
+        dns_result = resolve(dns_name)
+        _emit_progress(progress_callback, "dns_completed", result=dns_result)
+
+    def host_progress(
+        state: str,
+        command: Sequence[str],
+        result: Optional[Dict[str, Any]],
+    ) -> None:
+        section = _command_section(command)
+        if state == "started":
+            _emit_progress(
+                progress_callback,
+                "host_started",
+                section=section,
+                command=list(command),
+            )
+            return
+        if result is None:
+            return
+        _, parsed = _parse_command_evidence(
+            command,
+            result,
+            os_name=os_name,
+            target=target,
+        )
+        _emit_progress(
+            progress_callback,
+            "host_completed",
+            section=section,
+            command=list(command),
+            result=parsed,
+        )
+
+    command_results = run_host_commands(
+        commands,
+        timeout=timeout,
+        max_workers=max_workers,
+        progress_callback=host_progress if progress_callback is not None else None,
+    )
+
+    def tcp_progress(
+        state: str,
+        port: int,
+        result: Optional[Dict[str, object]],
+    ) -> None:
+        _emit_progress(
+            progress_callback,
+            f"tcp_{state}",
+            port=port,
+            result=result or {},
+        )
 
     tcp_results = run_tcp_checks(
         target,
@@ -232,8 +344,8 @@ def collect_live_evidence(
         timeout=tcp_timeout,
         max_attempts=tcp_attempts,
         max_workers=max_workers,
+        progress_callback=tcp_progress if progress_callback is not None else None,
     )
-    command_results = run_host_commands(commands, timeout=timeout, max_workers=max_workers)
 
     evidence: Dict[str, Any] = {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -254,7 +366,7 @@ def collect_live_evidence(
             "tcp_max_attempts": tcp_attempts,
         },
         "context": prompt_context(non_interactive),
-        "dns": resolve(dns_name) if dns_name else {},
+        "dns": dns_result,
         "tcp": tcp_results,
         "commands": command_results,
     }
@@ -266,6 +378,15 @@ def collect_live_evidence(
         os_name=os_name,
         target=target,
     )
+
+    _emit_progress(progress_callback, "health_started")
     evidence["health"] = evaluate_health(evidence)
+    _emit_progress(progress_callback, "health_completed", result=evidence["health"])
+
     evidence["collection_summary"] = build_collection_summary(evidence)
+    _emit_progress(
+        progress_callback,
+        "collection_completed",
+        result=evidence["collection_summary"],
+    )
     return evidence
