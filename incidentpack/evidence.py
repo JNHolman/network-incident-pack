@@ -380,6 +380,7 @@ def collect_live_evidence(
         target=target,
     )
 
+    _emit_progress(progress_callback, "collection_started")
     evidence["collection_summary"] = build_collection_summary(evidence)
     _emit_progress(
         progress_callback,
