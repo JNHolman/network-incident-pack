@@ -10,11 +10,13 @@ flowchart TD
     B --> C[Collect host and network evidence]
     C --> D[Parse supported results]
     D --> E[Evaluate health]
-    E --> F[Validate report]
-    F --> G[JSON + Markdown output]
-    B --> H[Optional NetBox lookup]
-    F --> I[Optional Azure ARM context]
-    F --> J[Optional ServiceNow work-note update]
+    E --> F[Sanitize + validate evidence]
+    F --> G[Optional external integrations]
+    G --> H[Sanitize + validate final report]
+    H --> I[JSON + Markdown output]
+    B --> J[Optional NetBox lookup]
+    G --> K[Azure ARM context]
+    G --> L[ServiceNow work-note update]
 ```
 
 The CLI is only an entry point. The reusable application service performs the actual workflow.
@@ -67,13 +69,13 @@ Examples:
 
 This is why the report keeps **reachability**, **service health**, and **collection quality** separate.
 
-### 5. Validate the report
+### 5. Sanitize and validate before external handoff
 
-Reports use a versioned schema. Before output or an external handoff, the application checks required fields, collection-summary consistency, JSON serialization, and forbidden secret-bearing fields.
+Reports use a versioned schema. Before an external handoff, the application checks required fields, collection-summary consistency, JSON serialization, and forbidden secret-bearing fields.
 
-Recognizable credential content is redacted before the report is written or sent to another system.
+Recognizable credential content is redacted before the report is sent to another system.
 
-### 6. Add optional external context
+### 6. Add optional integrations, then validate again
 
 External systems are deliberately additive rather than required.
 
@@ -82,6 +84,8 @@ External systems are deliberately additive rather than required.
 - **ServiceNow** is the only write integration and updates work notes only when explicitly requested.
 
 A cloud-hosted target still goes through the same network checks. Azure metadata adds control-plane context; it does not replace packet-path evidence.
+
+Because integrations can add fields to the report, the application sanitizes and validates the final structure again before writing JSON and Markdown.
 
 ## Why the implementation is split into modules
 
