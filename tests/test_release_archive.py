@@ -55,7 +55,7 @@ class ReleaseArchiveTests(unittest.TestCase):
                     "network-incident-pack-v1.1.3/README.md",
                     "network-incident-pack-v1.1.3/SECURITY.md",
                     "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
-            "network-incident-pack-v1.1.3/docs/VALIDATION.md",
+                    "network-incident-pack-v1.1.3/docs/VALIDATION.md",
                     member,
                 )
                 with self.assertRaisesRegex(ValueError, "forbidden artifacts"):
