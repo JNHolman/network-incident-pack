@@ -19,6 +19,7 @@ class ReleaseArchiveTests(unittest.TestCase):
         archive = self._archive(
             "network-incident-pack-v1.1.3/README.md",
             "network-incident-pack-v1.1.3/SECURITY.md",
+            "network-incident-pack-v1.1.3/assets/network-incident-pack-demo.gif",
             "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
             "network-incident-pack-v1.1.3/docs/VALIDATION.md",
             "network-incident-pack-v1.1.3/incidentpack/__init__.py",
@@ -37,6 +38,7 @@ class ReleaseArchiveTests(unittest.TestCase):
         archive = self._archive(
             "network-incident-pack-v1.1.3/README.md",
             "network-incident-pack-v1.1.3/SECURITY.md",
+            "network-incident-pack-v1.1.3/assets/network-incident-pack-demo.gif",
             "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
             "network-incident-pack-v1.1.3/docs/VALIDATION.md",
             "network-incident-pack-v1.1.3/.venv/bin/python",
@@ -54,6 +56,7 @@ class ReleaseArchiveTests(unittest.TestCase):
                 archive = self._archive(
                     "network-incident-pack-v1.1.3/README.md",
                     "network-incident-pack-v1.1.3/SECURITY.md",
+                    "network-incident-pack-v1.1.3/assets/network-incident-pack-demo.gif",
                     "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
                     "network-incident-pack-v1.1.3/docs/VALIDATION.md",
                     member,
