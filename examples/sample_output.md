@@ -1,5 +1,7 @@
 # Incident Evidence Pack
 
+> Deterministic mock output from the baseline scenario. This file demonstrates the report format; live cloud evidence is documented separately in [Azure Live Validation Evidence](azure_validation.md).
+
 ## Metadata
 - Report Schema: `2`
 - Timestamp (UTC): `2026-01-29T06:07:27+00:00`
