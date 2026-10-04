@@ -107,20 +107,38 @@ The work-note integration is covered by mocked HTTP contract tests and explicit-
 
 ### Azure Resource Manager
 
-The read-only Azure adapter is implemented and covered by mocked HTTP contract tests.
+The read-only Azure adapter is covered by HTTP contract tests and was also validated against a live disposable Ubuntu 24.04 VM in Azure from an external macOS client.
 
-**Live Azure validation is still pending.** Once completed, this section will contain the real cloud evidence rather than a separate setup document.
+The live lab used three deliberate network conditions:
 
-The intended validation is deliberately small:
+| Port | Azure/guest condition | External observation | Additional proof |
+| --- | --- | --- | --- |
+| `8080` | NSG allowed; Python HTTP service listening | TCP connected successfully | HTTP response returned from the Azure VM |
+| `8081` | NSG allowed; no service listening | external client observed a timeout | guest `tcpdump` confirmed the SYN reached Ubuntu and Ubuntu emitted a TCP RST |
+| `8443` | no inbound allow rule; default NSG deny applied | external client observed a timeout | guest `tcpdump` captured 0 packets for the test |
 
-- one disposable Linux VM
-- one reachable service
-- one allowed port with no listener to produce a refusal
-- one NSG-blocked port to demonstrate policy/drop behavior
-- real ARM enrichment for VM, NIC, IP, VNet, subnet, and NSG context
-- sanitized JSON/Markdown evidence from the real run
+The main Incident Pack validation run targeted ports `8080` and `8443`. ICMP returned 100% loss and traceroute did not reach the destination, but TCP/8080 connected. The health engine therefore reported:
 
-The purpose is to prove that the same incident reasoning works against a real cloud-hosted target and that Azure control-plane metadata adds context without replacing packet-path evidence.
+```text
+Overall:      DEGRADED
+Reachability: HEALTHY
+TCP checks:   1/2 connected
+```
+
+That result is important because it proves that failed ping and incomplete traceroute do not automatically override stronger positive Layer 4 evidence.
+
+The same run also performed real Azure ARM enrichment and returned report-safe control-plane context for:
+
+- VM name, resource group, region, size, provisioning state, and power state
+- NIC name
+- private and public IP addresses
+- virtual network
+- subnet
+- network security group
+
+The report intentionally omits subscription IDs and access tokens. A short sanitized record of the live run is kept in [`examples/azure_validation.md`](../examples/azure_validation.md).
+
+This validation demonstrates that Azure metadata adds control-plane context without replacing packet-path evidence.
 
 ## Automated quality and regression coverage
 
@@ -148,7 +166,6 @@ It is **not** represented as proof of:
 
 - production multi-vendor device collection
 - production NetBox or ServiceNow integration
-- completed live Azure ARM validation
 - infrastructure provisioning
 - full network-management functionality
 
