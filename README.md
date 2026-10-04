@@ -5,9 +5,11 @@
 
 When a service is having problems, a network engineer usually starts by proving the basics: does the name resolve, is the host reachable, where does the path stop, is the requested service answering, and does the local machine have the interfaces and routes it needs?
 
-**Network Incident Pack automates that first pass.** It collects host-side network evidence, keeps the raw command output, turns supported results into structured data, applies explicit health rules, and produces consistent JSON and ticket-ready Markdown reports.
+During an incident, engineers can lose valuable time repeating those checks, interpreting partial signals differently, and manually turning troubleshooting notes into something another engineer or support team can use. That creates duplicated work and slower handoffs when the team needs a clear picture quickly.
 
-The goal is not to replace an engineer. It is to make the first round of incident evidence faster, repeatable, and easier to interpret.
+**Network Incident Pack automates and standardizes that first pass.** It collects host-side network evidence, keeps the raw command output, turns supported results into structured data, applies explicit health rules, and produces consistent JSON and ticket-ready Markdown reports.
+
+The goal is not to replace an engineer. It is to reduce repetitive first-pass work, make the evidence easier to interpret, and give the next person a consistent incident handoff.
 
 ## Why the health model matters
 
