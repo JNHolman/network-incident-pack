@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from typing import Callable, List, Optional, Sequence
 
 from incidentpack.runner import CommandResult, run_command
