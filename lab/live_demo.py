@@ -8,7 +8,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, List
+from typing import Callable, Iterable, List
 
 from incidentpack.application import IncidentPackRequest, IncidentPackResult, run_incident_pack
 from lab.local_sandbox import SandboxEnvironment, start_sandbox
