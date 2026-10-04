@@ -165,6 +165,10 @@ class DemoRenderer:
             self.finish(f"tcp:{port}", f"TCP {port}", state, detail)
             return
 
+        if event == "collection_started":
+            self.start("collection", "Collection quality", "evaluating...")
+            return
+
         if event == "collection_completed":
             result = payload.get("result") or {}
             if not isinstance(result, dict):
