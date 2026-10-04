@@ -254,14 +254,48 @@ class DemoRenderer:
 
     @staticmethod
     def interpretation(result: IncidentPackResult) -> None:
-        findings = list((result.evidence.get("health") or {}).get("findings") or [])
+        evidence = result.evidence
+        health = evidence.get("health") or {}
+        tcp_results = list(evidence.get("tcp") or [])
+        dns = evidence.get("dns") or {}
+
+        print("\nInterpretation:")
+
+        refused = [
+            item
+            for item in tcp_results
+            if str(item.get("error_type") or "") == "connection_refused"
+        ]
+        connected = [item for item in tcp_results if item.get("ok") is True]
+        timed_out = [
+            item for item in tcp_results
+            if str(item.get("error_type") or "") == "timeout"
+        ]
+
+        if refused:
+            print("  - One requested service is unavailable.")
+            print("  - The returned TCP RST confirms the host remains reachable.")
+            return
+
+        if dns.get("error") and connected:
+            print("  - DNS resolution failed, but the IP/TCP path is still reachable.")
+            return
+
+        if timed_out and connected:
+            print("  - One requested service did not respond before timeout.")
+            print("  - Another TCP connection confirms the host remains reachable.")
+            return
+
+        if str(health.get("status") or "") == "healthy":
+            print("  - Requested checks support a healthy target and service path.")
+            return
+
+        findings = list(health.get("findings") or [])
         if findings:
-            print("\nInterpretation:")
             for finding in findings:
                 print(f"  - {finding}")
         else:
-            print("\nInterpretation:")
-            print("  - Requested checks support a healthy target and service path.")
+            print("  - Review the collected evidence for the degraded condition.")
 
 
 def run_demo(out_dir: str, scenario: str = "all") -> int:
@@ -317,9 +351,6 @@ def run_demo(out_dir: str, scenario: str = "all") -> int:
                     f"\nScenario result: {marker} — "
                     f"status={status}, reachability={reachability}"
                 )
-            else:
-                marker = "matched" if matched else "did not match"
-                print(f"\nExpected outcome {marker}.")
 
     finally:
         sandbox.close()
