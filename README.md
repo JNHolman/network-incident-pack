@@ -11,16 +11,13 @@ During an incident, engineers can lose valuable time repeating those checks, int
 
 The goal is not to replace an engineer. It is to reduce repetitive first-pass work, make the evidence easier to interpret, and give the next person a consistent incident handoff.
 
-
 ## Live demo
 
-The repository includes a **[live local sandbox](lab/live_demo.py)** that creates real socket and DNS conditions and sends them through the normal Incident Pack workflow. The focused demo below is not a replay of prebuilt output: the status text changes as the real DNS, host, TCP, health, and report steps complete.
+The repository includes a [live local sandbox](lab/live_demo.py) that creates real socket and DNS conditions and sends them through the normal Incident Pack workflow. The focused demo below is not a replay of prebuilt output: the status changes as the real DNS, host, TCP, health, and report steps complete.
 
 ![Network Incident Pack live demo](assets/network-incident-pack-demo.gif)
 
-[Open the animated demo directly](assets/network-incident-pack-demo.gif) or [watch the MP4 version](assets/network-incident-pack-demo.mp4) if your viewer does not animate GIFs.
-
-The focused `service-refused` scenario is useful because it shows the main health-model distinction in one short run: one TCP service connects, another returns a refusal, overall service health degrades, but host reachability remains healthy because the returned RST proves a Layer 4 responder answered.
+The focused `service-refused` scenario shows the main health-model distinction in one short run: one TCP service connects, another returns a refusal, overall service health degrades, but host reachability remains healthy because the returned RST proves a Layer 4 responder answered.
 
 The full live matrix covers:
 
@@ -30,7 +27,7 @@ The full live matrix covers:
 | `service-refused` | the host responds but one requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
 | `dns-failure` | the IP/TCP path works while the requested DNS name fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
 
-The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample Markdown incident report](examples/sample_output.md) shows the human-readable handoff. See [Validation](docs/VALIDATION.md) for the live evidence, deterministic coverage, mocked integration boundaries, and validation limits.
+The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample incident report](examples/sample_output.md) shows the resulting human-readable handoff.
 
 ## Why the health model matters
 
@@ -81,59 +78,42 @@ The core Incident Pack works without external systems.
 | Azure ARM | add VM and cloud network control-plane context | read-only |
 | ServiceNow | add the finished incident summary to an existing ticket | explicit write only |
 
-Azure enrichment does **not** provision infrastructure. The adapter is covered by HTTP contract tests and has also been validated against a live Azure VM from an external macOS client.
+Azure enrichment does **not** provision infrastructure. It adds control-plane context to the same host-side evidence workflow.
 
 ## Engineering
 
 The CLI is a thin entry point over a reusable application service. Collection, parsing, health evaluation, integrations, and reporting are separated so the workflow is not tied to terminal argument parsing.
 
-The project also keeps resource use bounded: port count, worker count, retry count, and command/TCP timeouts are capped. Credentialed integration endpoints require HTTPS, redirects are not automatically followed with credentials, and credentials come from environment variables rather than command-line arguments or inventory files.
+Resource use is bounded: port count, worker count, retry count, and command/TCP timeouts are capped. Credentialed integration endpoints require HTTPS, redirects are not automatically followed with credentials, and credentials come from environment variables rather than command-line arguments or inventory files.
 
-See [Engineering and Architecture](docs/ENGINEERING.md) for the application flow and the reasons behind the main design choices.
+See [Engineering and Architecture](docs/ENGINEERING.md) for the application flow and design decisions.
 
 ## Validation
 
-Current validation includes:
+Validation includes real localhost TCP/DNS execution, cross-platform parser fixtures, deterministic failure scenarios, mocked integration contracts, application/CLI regression coverage, and a live Azure VM run with read-only ARM enrichment.
 
-- real localhost TCP/DNS sandbox execution
-- Linux/macOS/Windows parser fixtures
-- deterministic failure scenarios
-- inventory-resolution tests
-- NetBox/Azure/ServiceNow contract tests with mocked HTTP responses
-- live Azure VM validation with ARM enrichment for VM/NIC/IP/VNet/subnet/NSG context
-- CLI/application integration tests
-- security/input-validation tests
-- release-archive verification
+In the Azure test, ICMP failed, traceroute did not reach the target, one requested TCP service timed out, and another connected successfully. The health engine correctly kept **reachability HEALTHY** while reporting degraded service health.
 
-Live Azure validation is now complete for a disposable Ubuntu VM. The external run kept reachability **HEALTHY** even when ICMP failed, traceroute did not reach the target, and one requested TCP service timed out because another TCP service connected successfully. ARM enrichment returned the VM, NIC, private/public IPs, VNet, subnet, NSG, VM size, provisioning state, and power state. See the [sanitized Azure validation evidence](examples/azure_validation.md).
+See [Validation](docs/VALIDATION.md) for the evidence boundaries and [Azure Live Validation Evidence](examples/azure_validation.md) for the sanitized cloud run.
 
-The project is a host-side network/infrastructure incident automation tool. It is not represented as a multi-vendor network-management platform, an infrastructure-provisioning system, or validation against production organization environments.
-
-See [Validation](docs/VALIDATION.md) for the evidence boundaries.
-
-## Optional: run the demo locally
+## Run the demo locally
 
 Requires Python 3.10+.
 
 ```bash
 python -m pip install -e .
-
-# focused portfolio demo
 python -m lab.live_demo --scenario service-refused --out-dir ./lab-output
-
-# full three-scenario validation matrix
-python -m lab.live_demo --out-dir ./lab-output
 ```
 
-This is optional. The repository and demo output are intended to be understandable without requiring a reviewer to recreate the development environment.
+Run the full three-scenario matrix by omitting `--scenario`.
 
 ## Documentation
 
 | Document | Purpose |
 | --- | --- |
-| [Engineering and Architecture](docs/ENGINEERING.md) | how the workflow is built and why the main engineering choices were made |
-| [Validation](docs/VALIDATION.md) | what has been proven live, what is deterministic/mock coverage, and the validation boundaries |
-| [Security](SECURITY.md) | authorization scope, endpoint/credential handling, redaction limits, and vulnerability reporting |
+| [Engineering and Architecture](docs/ENGINEERING.md) | application flow, module boundaries, and design choices |
+| [Validation](docs/VALIDATION.md) | live proof, deterministic coverage, mocked boundaries, and limitations |
+| [Security](SECURITY.md) | authorization scope, credential handling, redaction, and release hygiene |
 
 ## License
 
