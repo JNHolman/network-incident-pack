@@ -1,6 +1,6 @@
 # Validation
 
-This document separates what Network Incident Pack has actually been proven to do from deterministic test coverage and planned cloud validation.
+This document separates what Network Incident Pack has actually been proven to do from deterministic test coverage, mocked integration coverage, and the boundaries of the live validation.
 
 The purpose of the validation is not to recreate a production enterprise network. It is to prove that the incident workflow behaves correctly when the underlying network evidence changes.
 
@@ -33,7 +33,7 @@ No prebuilt result JSON is loaded for these cases.
 
 The terminal demo is meant to make the incident workflow understandable without requiring a reviewer to inspect every module.
 
-For each live scenario it presents the actual collected evidence in the same order an engineer would reason through it:
+For each live scenario it presents the actual collected evidence in the same order an engineer would reason through it. The focused `service-refused` mode is intended for the short portfolio demo; the default mode still runs the full three-scenario validation matrix:
 
 1. DNS resolution
 2. local interfaces
@@ -44,11 +44,11 @@ For each live scenario it presents the actual collected evidence in the same ord
 7. requested TCP services
 8. collection quality
 9. final health decision
-10. generated report paths
+10. report-write completion
 
 The wording deliberately explains why the evidence matters. For example, a connection refusal is shown as a failed service check while the health decision keeps reachability healthy because the returned RST proves a Layer 4 responder answered.
 
-When run in an interactive terminal, status wording changes in place so the viewer can see the workflow progress. CI output stays line-oriented and readable.
+When run in an interactive terminal, status wording changes in place from states such as `resolving...`, `checking...`, and `connecting...` to the actual collector/parser result. Those transitions are driven by progress events from the live workflow rather than replayed after collection. CI output stays line-oriented and readable.
 
 ## Deterministic edge-case coverage
 
