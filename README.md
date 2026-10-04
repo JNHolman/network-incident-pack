@@ -14,7 +14,7 @@ The goal is not to replace an engineer. It is to make the first round of inciden
 A single failed check rarely tells the whole story.
 
 - **Ping failure does not automatically mean the host is unreachable.** TCP may still prove a working path.
-- **TCP connection refused is a service failure, not proof of a dead host.** The returned RST proves an Layer 4 responder answered.
+- **TCP connection refused is a service failure, not proof of a dead host.** The returned RST proves a Layer 4 responder answered.
 - **An intermediate traceroute timeout does not fail the path** when the destination is eventually reached.
 - **Collector failure is separate from network failure.** Missing local evidence makes the collection incomplete; it does not automatically mean the network is down.
 
