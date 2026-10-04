@@ -11,6 +11,27 @@ During an incident, engineers can lose valuable time repeating those checks, int
 
 The goal is not to replace an engineer. It is to reduce repetitive first-pass work, make the evidence easier to interpret, and give the next person a consistent incident handoff.
 
+
+## Live demo
+
+The repository includes a **[live local sandbox](lab/live_demo.py)** that creates real socket and DNS conditions and sends them through the normal Incident Pack workflow. The focused demo below is not a replay of prebuilt output: the status text changes as the real DNS, host, TCP, health, and report steps complete.
+
+![Network Incident Pack live demo](assets/network-incident-pack-demo.gif)
+
+[Open the demo directly](assets/network-incident-pack-demo.gif) if animation is disabled in your viewer.
+
+The focused `service-refused` scenario is useful because it shows the main health-model distinction in one short run: one TCP service connects, another returns a refusal, overall service health degrades, but host reachability remains healthy because the returned RST proves a Layer 4 responder answered.
+
+The full live matrix covers:
+
+| Case | Real condition | Expected result |
+| --- | --- | --- |
+| `healthy` | DNS resolves and both requested TCP services accept connections | `HEALTHY` |
+| `service-refused` | the host responds but one requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
+| `dns-failure` | the IP/TCP path works while the requested DNS name fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
+
+The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample Markdown incident report](examples/sample_output.md) shows the human-readable handoff. See [Validation](docs/VALIDATION.md) for the live evidence, deterministic coverage, mocked integration boundaries, and validation limits.
+
 ## Why the health model matters
 
 A single failed check rarely tells the whole story.
@@ -33,24 +54,6 @@ Network Incident Pack therefore evaluates **reachability**, **service health**, 
 | 5 | parses supported command output while retaining the raw evidence | gives automation structured data without removing the engineer's original evidence |
 | 6 | evaluates health from the combined evidence | avoids treating one protocol as authoritative for every failure |
 | 7 | sanitizes and validates the evidence, adds requested external context, revalidates, and writes the report | produces a consistent handoff without letting an integration bypass the report contract |
-
-## Live demo
-
-The repository includes a **[live local sandbox](lab/live_demo.py)** that creates real socket and DNS conditions and sends them through the normal Incident Pack workflow. The focused demo below is not a replay of prebuilt output: the status text changes as the real DNS, host, TCP, health, and report steps complete.
-
-![Network Incident Pack live demo](assets/network-incident-pack-demo.gif)
-
-The focused `service-refused` scenario is useful because it shows the main health-model distinction in one short run: one TCP service connects, another returns a refusal, overall service health degrades, but host reachability remains healthy because the returned RST proves a Layer 4 responder answered.
-
-The full live matrix covers:
-
-| Case | Real condition | Expected result |
-| --- | --- | --- |
-| `healthy` | DNS resolves and both requested TCP services accept connections | `HEALTHY` |
-| `service-refused` | the host responds but one requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
-| `dns-failure` | the IP/TCP path works while the requested DNS name fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
-
-The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample Markdown incident report](examples/sample_output.md) shows the human-readable handoff. See [Validation](docs/VALIDATION.md) for the live evidence, deterministic coverage, mocked integration boundaries, and validation limits.
 
 ## What the project includes
 
