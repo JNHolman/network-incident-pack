@@ -6,7 +6,6 @@ import logging
 import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from typing import Callable, Dict, List, Optional, Sequence
 
 logger = logging.getLogger(__name__)
