@@ -30,43 +30,17 @@ Network Incident Pack therefore evaluates **reachability**, **service health**, 
 | 4 | tests requested TCP services | proves whether a specific Layer 4 service accepts, refuses, resets, or times out |
 | 5 | parses supported command output while retaining the raw evidence | gives automation structured data without removing the engineer's original evidence |
 | 6 | evaluates health from the combined evidence | avoids treating one protocol as authoritative for every failure |
-| 7 | validates and writes the report, then adds optional external context | produces a consistent handoff for incident work |
+| 7 | sanitizes and validates the evidence, adds requested external context, revalidates, and writes the report | produces a consistent handoff without letting an integration bypass the report contract |
 
 ## Live demo
 
-The repository includes a **[live local sandbox](lab/live_demo.py)** that creates real socket and DNS conditions and sends them through the normal Incident Pack workflow.
+The repository includes a **[live local sandbox](lab/live_demo.py)** that creates real socket and DNS conditions and sends them through the normal Incident Pack workflow. The focused demo below is not a replay of prebuilt output: the status text changes as the real DNS, host, TCP, health, and report steps complete.
 
-The demo is intentionally visible: checks announce what they are doing, then show the result returned by the real collector/parser path.
+![Network Incident Pack live demo](assets/network-incident-pack-demo.gif)
 
-Example excerpt:
+The focused `service-refused` scenario is useful because it shows the main health-model distinction in one short run: one TCP service connects, another returns a refusal, overall service health degrades, but host reachability remains healthy because the returned RST proves a Layer 4 responder answered.
 
-```text
-Scenario: service-refused
-Target: 127.0.0.1
-
-DNS                 resolving      Can the requested name resolve?
-DNS                 HEALTHY        localhost -> 127.0.0.1
-
-Interfaces          collecting     Is the local host connected?
-Routes              collecting     Is there a usable route?
-Ping                testing        Does ICMP return from the target?
-Traceroute          tracing        How far does the path get?
-
-TCP 45047           connecting     Is this service accepting connections?
-TCP 45047           CONNECTED
-TCP 39097           connecting     Is this service accepting connections?
-TCP 39097           REFUSED
-
-Health decision     evaluating
-Overall health      DEGRADED
-Reachability        HEALTHY
-TCP service health  DEGRADED
-
-Interpretation: the refused connection shows that the requested
-service is unavailable on that port, while the host still answered at Layer 4.
-```
-
-The live matrix covers:
+The full live matrix covers:
 
 | Case | Real condition | Expected result |
 | --- | --- | --- |
@@ -74,7 +48,7 @@ The live matrix covers:
 | `service-refused` | the host responds but one requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
 | `dns-failure` | the IP/TCP path works while the requested DNS name fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
 
-The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample Markdown incident report](examples/sample_output.md) shows the final human-readable handoff. See [Validation](docs/VALIDATION.md) for what is live, deterministic, mocked, and still pending.
+The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample Markdown incident report](examples/sample_output.md) shows the human-readable handoff. See [Validation](docs/VALIDATION.md) for the live evidence, deterministic coverage, mocked integration boundaries, and validation limits.
 
 ## What the project includes
 
@@ -138,6 +112,11 @@ Requires Python 3.10+.
 
 ```bash
 python -m pip install -e .
+
+# focused portfolio demo
+python -m lab.live_demo --scenario service-refused --out-dir ./lab-output
+
+# full three-scenario validation matrix
 python -m lab.live_demo --out-dir ./lab-output
 ```
 
@@ -148,7 +127,7 @@ This is optional. The repository and demo output are intended to be understandab
 | Document | Purpose |
 | --- | --- |
 | [Engineering and Architecture](docs/ENGINEERING.md) | how the workflow is built and why the main engineering choices were made |
-| [Validation](docs/VALIDATION.md) | what has been proven live, what is deterministic/mock coverage, and what remains pending |
+| [Validation](docs/VALIDATION.md) | what has been proven live, what is deterministic/mock coverage, and the validation boundaries |
 | [Security](SECURITY.md) | authorization scope, endpoint/credential handling, redaction limits, and vulnerability reporting |
 
 ## License
