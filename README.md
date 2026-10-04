@@ -18,7 +18,7 @@ The repository includes a **[live local sandbox](lab/live_demo.py)** that create
 
 ![Network Incident Pack live demo](assets/network-incident-pack-demo.gif)
 
-[Open the demo directly](assets/network-incident-pack-demo.gif) if animation is disabled in your viewer.
+[Open the animated demo directly](assets/network-incident-pack-demo.gif) or [watch the MP4 version](assets/network-incident-pack-demo.mp4) if your viewer does not animate GIFs.
 
 The focused `service-refused` scenario is useful because it shows the main health-model distinction in one short run: one TCP service connects, another returns a refusal, overall service health degrades, but host reachability remains healthy because the returned RST proves a Layer 4 responder answered.
 
