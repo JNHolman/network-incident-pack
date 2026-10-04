@@ -379,14 +379,14 @@ def collect_live_evidence(
         target=target,
     )
 
-    _emit_progress(progress_callback, "health_started")
-    evidence["health"] = evaluate_health(evidence)
-    _emit_progress(progress_callback, "health_completed", result=evidence["health"])
-
     evidence["collection_summary"] = build_collection_summary(evidence)
     _emit_progress(
         progress_callback,
         "collection_completed",
         result=evidence["collection_summary"],
     )
+
+    _emit_progress(progress_callback, "health_started")
+    evidence["health"] = evaluate_health(evidence)
+    _emit_progress(progress_callback, "health_completed", result=evidence["health"])
     return evidence
