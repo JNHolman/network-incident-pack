@@ -5,10 +5,9 @@ from __future__ import annotations
 import ipaddress
 import os
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional
 
 from incidentpack.integrations.http import ApiError, JsonApiClient
-from incidentpack.inventory import ResolvedTarget
 from incidentpack.validation import validate_https_endpoint
 
 
@@ -48,15 +47,6 @@ class NetBoxDevice:
     site: str = ""
     role: str = ""
 
-    def resolved_target(self, ports: Sequence[int]) -> ResolvedTarget:
-        return ResolvedTarget(
-            address=self.address,
-            dns_name=self.dns_name or None,
-            ports=list(ports),
-            device=self.name,
-            site=self.site,
-            role=self.role,
-        )
 
 
 class NetBoxClient:
