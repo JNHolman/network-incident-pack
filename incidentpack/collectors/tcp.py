@@ -6,13 +6,13 @@ import logging
 import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-from typing import Callable, Dict, List, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
 Connector = Callable[..., object]
 Sleeper = Callable[[float], None]
+TcpProgressCallback = Callable[[str, int, Optional[Dict[str, object]]], None]
 
 
 def _error_type(error: BaseException) -> str:
@@ -63,7 +63,6 @@ def tcp_check(
         attempts_used = attempt
         try:
             connection = connector((host, port), timeout=timeout)
-            # socket.create_connection returns a context manager, but a test double may not.
             close = getattr(connection, "close", None)
             if callable(close):
                 close()
@@ -76,7 +75,7 @@ def tcp_check(
                 "attempts": attempt,
                 "duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
             }
-        except Exception as error:  # Collector boundary: classify and preserve evidence.
+        except Exception as error:
             last_error = error
             retryable = _is_retryable(error)
             logger.debug(
@@ -113,6 +112,7 @@ def run_tcp_checks(
     max_attempts: int = 2,
     retry_delay: float = 0.2,
     max_workers: int = 4,
+    progress_callback: Optional[TcpProgressCallback] = None,
 ) -> List[Dict[str, object]]:
     """Run independent TCP checks concurrently while preserving input port order."""
     if max_workers < 1:
@@ -120,16 +120,22 @@ def run_tcp_checks(
     if not ports:
         return []
 
+    def check_port(port: int) -> Dict[str, object]:
+        if progress_callback is not None:
+            progress_callback("started", port, None)
+        result = tcp_check(
+            host,
+            port,
+            timeout=timeout,
+            max_attempts=max_attempts,
+            retry_delay=retry_delay,
+        )
+        if progress_callback is not None:
+            progress_callback("completed", port, result)
+        return result
+
     worker_count = min(max_workers, len(ports))
-    check = partial(
-        tcp_check,
-        host,
-        timeout=timeout,
-        max_attempts=max_attempts,
-        retry_delay=retry_delay,
-    )
     with ThreadPoolExecutor(
         max_workers=worker_count, thread_name_prefix="incident-tcp"
     ) as executor:
-        # executor.map executes concurrently but yields values in the same order as ports.
-        return list(executor.map(check, ports))
+        return list(executor.map(check_port, ports))

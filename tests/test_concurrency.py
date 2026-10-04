@@ -54,6 +54,26 @@ class TcpCollectorTests(unittest.TestCase):
             results = run_tcp_checks("10.0.0.1", [443, 22, 80], max_workers=3)
         self.assertEqual([item["port"] for item in results], [443, 22, 80])
 
+    def test_tcp_progress_reports_actual_start_and_completion(self):
+        events = []
+
+        def fake_check(host, port, **kwargs):
+            return {"host": host, "port": port, "ok": True}
+
+        with mock.patch("incidentpack.collectors.tcp.tcp_check", side_effect=fake_check):
+            run_tcp_checks(
+                "10.0.0.1",
+                [443],
+                max_workers=1,
+                progress_callback=lambda state, port, result: events.append(
+                    (state, port, result)
+                ),
+            )
+
+        self.assertEqual(events[0], ("started", 443, None))
+        self.assertEqual(events[1][0:2], ("completed", 443))
+        self.assertTrue(events[1][2]["ok"])
+
 
 class HostConcurrencyTests(unittest.TestCase):
     def test_commands_overlap_and_preserve_configured_order(self):
@@ -77,6 +97,26 @@ class HostConcurrencyTests(unittest.TestCase):
 
         self.assertGreaterEqual(max_active, 2)
         self.assertEqual([item["cmd"] for item in results], ["first", "second", "third"])
+
+    def test_host_progress_reports_actual_start_and_completion(self):
+        events = []
+
+        def fake_run(command, timeout):
+            return {"cmd": command[0], "ok": True}
+
+        with mock.patch("incidentpack.collectors.host.run_command", side_effect=fake_run):
+            run_host_commands(
+                [["ping", "127.0.0.1"]],
+                timeout=5,
+                max_workers=1,
+                progress_callback=lambda state, command, result: events.append(
+                    (state, list(command), result)
+                ),
+            )
+
+        self.assertEqual(events[0], ("started", ["ping", "127.0.0.1"], None))
+        self.assertEqual(events[1][0:2], ("completed", ["ping", "127.0.0.1"]))
+        self.assertTrue(events[1][2]["ok"])
 
 
 if __name__ == "__main__":

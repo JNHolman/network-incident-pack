@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, List
+from typing import Dict, Iterable, List
 
 from incidentpack.application import IncidentPackRequest, IncidentPackResult, run_incident_pack
 from lab.local_sandbox import SandboxEnvironment, start_sandbox
@@ -17,6 +16,7 @@ from lab.local_sandbox import SandboxEnvironment, start_sandbox
 @dataclass(frozen=True)
 class DemoCase:
     name: str
+    display_name: str
     dns_name: str
     ports: List[int]
     expected_status: str
@@ -27,6 +27,7 @@ def build_demo_cases(sandbox: SandboxEnvironment) -> List[DemoCase]:
     return [
         DemoCase(
             name="healthy",
+            display_name="Healthy baseline",
             dns_name="localhost",
             ports=[sandbox.http_port, sandbox.tcp_port],
             expected_status="healthy",
@@ -34,6 +35,7 @@ def build_demo_cases(sandbox: SandboxEnvironment) -> List[DemoCase]:
         ),
         DemoCase(
             name="service-refused",
+            display_name="Service unavailable",
             dns_name="localhost",
             ports=[sandbox.http_port, sandbox.refused_port],
             expected_status="degraded",
@@ -41,6 +43,7 @@ def build_demo_cases(sandbox: SandboxEnvironment) -> List[DemoCase]:
         ),
         DemoCase(
             name="dns-failure",
+            display_name="DNS failure",
             dns_name="incident-pack-demo.invalid",
             ports=[sandbox.http_port],
             expected_status="degraded",
@@ -50,249 +53,253 @@ def build_demo_cases(sandbox: SandboxEnvironment) -> List[DemoCase]:
 
 
 class DemoRenderer:
-    """Present real Incident Pack results as an engineer-readable terminal walkthrough."""
+    """Render real collection events as a concise terminal walkthrough."""
+
+    HOST_STAGES: Dict[str, tuple[str, str]] = {
+        "interfaces": ("Interfaces", "collecting..."),
+        "routes": ("Routes", "checking..."),
+        "neighbors": ("Neighbors", "checking..."),
+        "ping": ("Ping", "testing..."),
+        "traceroute": ("Traceroute", "tracing..."),
+        "sockets": ("Local sockets", "collecting..."),
+        "command": ("Host command", "running..."),
+    }
 
     def __init__(self) -> None:
         self.interactive = sys.stdout.isatty()
-        self.pause = 0.28 if self.interactive else 0.0
+        self.minimum_stage_seconds = 0.35 if self.interactive else 0.0
+        self.started_at: Dict[str, float] = {}
 
     def _replace(self, text: str) -> None:
-        if not self.interactive:
-            return
         sys.stdout.write("\r\033[2K" + text)
         sys.stdout.flush()
 
-    def transition(self, label: str, working: str, final: str, detail: str = "") -> None:
-        prefix = f"{label:<20}"
+    @staticmethod
+    def _format(label: str, state: str) -> str:
+        return f"{label:<20}{state}"
+
+    def start(self, key: str, label: str, state: str) -> None:
+        self.started_at[key] = time.monotonic()
         if self.interactive:
-            self._replace(f"{prefix}{working}")
-            time.sleep(self.pause)
-            self._replace(f"{prefix}{final}")
+            self._replace(self._format(label, state))
+
+    def finish(self, key: str, label: str, state: str, detail: str = "") -> None:
+        if self.interactive:
+            elapsed = time.monotonic() - self.started_at.get(key, time.monotonic())
+            remaining = self.minimum_stage_seconds - elapsed
+            if remaining > 0:
+                time.sleep(remaining)
+            self._replace(self._format(label, state))
             sys.stdout.write("\n")
         else:
-            print(f"{prefix}{final}")
+            print(self._format(label, state))
         if detail:
             print(f"{'':20}{detail}")
 
-    def collect(self, action: Callable[[], IncidentPackResult]) -> IncidentPackResult:
-        if not self.interactive:
-            print("Collecting live evidence...")
-            return action()
+    def progress(self, event: str, payload: Dict[str, object]) -> None:
+        if event == "dns_started":
+            self.start("dns", "DNS", "resolving...")
+            return
 
-        result: list[IncidentPackResult] = []
-        error: list[BaseException] = []
-
-        def worker() -> None:
-            try:
-                result.append(action())
-            except BaseException as exc:  # Re-raise on the main thread.
-                error.append(exc)
-
-        thread = threading.Thread(target=worker, name="incident-demo-runner", daemon=True)
-        thread.start()
-        frames = ["|", "/", "-", "\\"]
-        index = 0
-        while thread.is_alive():
-            self._replace(
-                f"Collecting live evidence {frames[index % len(frames)]} "
-                "(host state, path, DNS, TCP)"
-            )
-            index += 1
-            time.sleep(0.12)
-        thread.join()
-        self._replace("Collecting live evidence ✓")
-        sys.stdout.write("\n")
-        if error:
-            raise error[0]
-        return result[0]
-
-    def show_result(self, result: IncidentPackResult) -> None:
-        evidence = result.evidence
-
-        dns = evidence.get("dns") or {}
-        if dns:
-            answers = list(dns.get("answers") or [])
-            if dns.get("error"):
-                self.transition(
+        if event == "dns_completed":
+            result = payload.get("result") or {}
+            if not isinstance(result, dict):
+                result = {}
+            answers = list(result.get("answers") or [])
+            if result.get("error"):
+                self.finish(
+                    "dns",
                     "DNS",
-                    "reviewing...",
                     "FAILED",
-                    "Name resolution failed. IP/TCP evidence is evaluated separately.",
+                    "Name resolution failed; IP/TCP evidence is evaluated separately.",
                 )
             else:
                 answer_text = ", ".join(str(value) for value in answers[:3]) or "no answers"
-                self.transition(
-                    "DNS",
-                    "reviewing...",
-                    "HEALTHY",
-                    f"Resolved to {answer_text}.",
+                self.finish("dns", "DNS", "HEALTHY", f"Resolved to {answer_text}")
+            return
+
+        if event == "host_started":
+            section = str(payload.get("section") or "command")
+            label, verb = self.HOST_STAGES.get(section, self.HOST_STAGES["command"])
+            self.start(f"host:{section}", label, verb)
+            return
+
+        if event == "host_completed":
+            section = str(payload.get("section") or "command")
+            label, _ = self.HOST_STAGES.get(section, self.HOST_STAGES["command"])
+            result = payload.get("result") or {}
+            if not isinstance(result, dict):
+                result = {}
+            status = str(result.get("status") or "complete").upper()
+            detail = self._host_detail(section, result)
+            self.finish(f"host:{section}", label, status, detail)
+            return
+
+        if event == "tcp_started":
+            port = int(payload.get("port") or 0)
+            self.start(f"tcp:{port}", f"TCP {port}", "connecting...")
+            return
+
+        if event == "tcp_completed":
+            port = int(payload.get("port") or 0)
+            result = payload.get("result") or {}
+            if not isinstance(result, dict):
+                result = {}
+            if result.get("ok") is True:
+                self.finish(
+                    f"tcp:{port}",
+                    f"TCP {port}",
+                    "CONNECTED",
+                    "Requested service accepted the connection.",
                 )
+                return
 
-        interfaces = evidence.get("interfaces") or {}
-        interface_status = str(interfaces.get("status") or "unknown").upper()
-        self.transition(
-            "Interfaces",
-            "reviewing...",
-            interface_status,
-            (
-                f"{interfaces.get('usable_up_count', 0)} usable interface(s) up. "
-                "This checks the local host's network state."
-            ),
-        )
-
-        routes = evidence.get("routes") or {}
-        route_status = str(routes.get("status") or "unknown").upper()
-        gateway = str(routes.get("default_gateway") or "")
-        route_detail = (
-            f"Default route present via {gateway}."
-            if routes.get("default_route")
-            else "No usable default route was parsed."
-        )
-        self.transition(
-            "Routes",
-            "reviewing...",
-            route_status,
-            route_detail + " Routing evidence is kept separate from target reachability.",
-        )
-
-        neighbors = evidence.get("neighbors") or {}
-        neighbor_status = str(neighbors.get("status") or "unknown").upper()
-        self.transition(
-            "Neighbors",
-            "reviewing...",
-            neighbor_status,
-            (
-                f"{neighbors.get('neighbor_count', 0)} cache entr"
-                f"{'y' if neighbors.get('neighbor_count') == 1 else 'ies'}, "
-                f"{neighbors.get('unresolved_count', 0)} unresolved."
-            ),
-        )
-
-        ping = evidence.get("ping") or {}
-        ping_status = str(ping.get("status") or "unknown").upper()
-        loss = ping.get("packet_loss_percent")
-        ping_detail = (
-            f"{loss:g}% packet loss. ICMP is useful evidence, but it is not the only "
-            "reachability signal."
-            if isinstance(loss, (int, float))
-            else "No packet-loss statistic was parsed."
-        )
-        self.transition("Ping", "reviewing...", ping_status, ping_detail)
-
-        trace = evidence.get("traceroute") or {}
-        trace_status = str(trace.get("status") or "unknown").upper()
-        trace_detail = (
-            f"Destination reached in {trace.get('hop_count', 0)} hop(s). "
-            f"Intermediate timeout hops: {trace.get('timeout_hops', 0)}."
-            if trace.get("target_reached") is True
-            else (
-                f"Destination not confirmed; responding hops: "
-                f"{trace.get('responding_hops', 0)}."
-            )
-        )
-        self.transition("Traceroute", "reviewing...", trace_status, trace_detail)
-
-        for tcp in evidence.get("tcp") or []:
-            port = tcp.get("port")
-            if tcp.get("ok") is True:
-                state = "CONNECTED"
-                detail = "The requested service accepted a TCP connection."
+            error_type = str(result.get("error_type") or "failed")
+            state = error_type.replace("_", " ").upper()
+            if error_type == "connection_refused":
+                detail = "RST received: host reachable; requested service is not listening."
+            elif error_type == "timeout":
+                detail = "No TCP response before timeout; this alone does not prove host failure."
             else:
-                error_type = str(tcp.get("error_type") or "failed")
-                state = error_type.replace("_", " ").upper()
-                if error_type == "connection_refused":
-                    detail = (
-                        "The service is unavailable on this port, but the returned RST "
-                        "proves a Layer 4 responder is reachable."
-                    )
-                elif error_type == "timeout":
-                    detail = (
-                        "No TCP response was received before timeout. This alone does not "
-                        "prove the host is down."
-                    )
-                else:
-                    detail = str(tcp.get("error") or "TCP check failed.")
-            self.transition(f"TCP {port}", "connecting...", state, detail)
+                detail = str(result.get("error") or "TCP check failed.")
+            self.finish(f"tcp:{port}", f"TCP {port}", state, detail)
+            return
 
-        summary = evidence.get("collection_summary") or {}
-        incomplete = int(summary.get("commands_failed") or 0) + int(
-            summary.get("parser_errors") or 0
-        )
-        collection_state = "COMPLETE" if incomplete == 0 else "INCOMPLETE"
-        self.transition(
-            "Collection quality",
-            "evaluating...",
-            collection_state,
-            (
-                f"{summary.get('commands_succeeded', 0)}/{summary.get('commands_total', 0)} "
-                f"host commands succeeded; {summary.get('parser_errors', 0)} parser error(s)."
-            ),
-        )
+        if event == "collection_started":
+            self.start("collection", "Collection quality", "evaluating...")
+            return
 
-        health = evidence.get("health") or {}
-        components = health.get("components") or {}
-        self.transition(
-            "Health decision",
-            "evaluating...",
-            str(health.get("status") or "unknown").upper(),
-        )
-        print(f"{'Reachability':<20}{str(health.get('reachability') or 'unknown').upper()}")
-        print(
-            f"{'TCP service health':<20}"
-            f"{str((components.get('tcp') or {}).get('status') or 'unknown').upper()}"
-        )
+        if event == "collection_completed":
+            result = payload.get("result") or {}
+            if not isinstance(result, dict):
+                result = {}
+            incomplete = int(result.get("commands_failed") or 0) + int(
+                result.get("parser_errors") or 0
+            )
+            state = "COMPLETE" if incomplete == 0 else "INCOMPLETE"
+            detail = (
+                f"{result.get('commands_succeeded', 0)}/{result.get('commands_total', 0)} "
+                f"host commands; {result.get('parser_errors', 0)} parser errors"
+            )
+            self.finish("collection", "Collection quality", state, detail)
+            return
 
-        findings = list(health.get("findings") or [])
+        if event == "health_started":
+            self.start("health", "Health decision", "evaluating...")
+            return
+
+        if event == "health_completed":
+            result = payload.get("result") or {}
+            if not isinstance(result, dict):
+                result = {}
+            self.finish(
+                "health",
+                "Health decision",
+                str(result.get("status") or "unknown").upper(),
+            )
+            components = result.get("components") or {}
+            if not isinstance(components, dict):
+                components = {}
+            tcp = components.get("tcp") or {}
+            if not isinstance(tcp, dict):
+                tcp = {}
+            print(
+                self._format(
+                    "Reachability",
+                    str(result.get("reachability") or "unknown").upper(),
+                )
+            )
+            print(
+                self._format(
+                    "TCP service health",
+                    str(tcp.get("status") or "unknown").upper(),
+                )
+            )
+            return
+
+        if event == "report_started":
+            self.start("report", "Report", "writing...")
+            return
+
+        if event == "report_completed":
+            self.finish("report", "Report", "WRITTEN", "JSON + Markdown saved")
+            return
+
+    @staticmethod
+    def _host_detail(section: str, result: Dict[str, object]) -> str:
+        if section == "interfaces":
+            return f"{result.get('usable_up_count', 0)} usable interface(s) up"
+        if section == "routes":
+            gateway = str(result.get("default_gateway") or "")
+            return (
+                f"Default route via {gateway}"
+                if result.get("default_route")
+                else "No usable default route parsed"
+            )
+        if section == "neighbors":
+            return (
+                f"{result.get('neighbor_count', 0)} entries; "
+                f"{result.get('unresolved_count', 0)} unresolved"
+            )
+        if section == "ping":
+            loss = result.get("packet_loss_percent")
+            return f"{loss:g}% packet loss" if isinstance(loss, (int, float)) else ""
+        if section == "traceroute":
+            if result.get("target_reached") is True:
+                return f"Destination reached in {result.get('hop_count', 0)} hop(s)"
+            return f"Destination not confirmed; {result.get('responding_hops', 0)} responding hop(s)"
+        if section == "sockets":
+            return "Local socket table captured"
+        return ""
+
+    @staticmethod
+    def interpretation(result: IncidentPackResult) -> None:
+        findings = list((result.evidence.get("health") or {}).get("findings") or [])
         if findings:
             print("\nInterpretation:")
             for finding in findings:
                 print(f"  - {finding}")
-        elif str(health.get("status") or "") == "healthy":
+        else:
             print("\nInterpretation:")
-            print("  - The requested checks support a healthy target and service path.")
-
-        print("\nReport output:")
-        print(f"  JSON     {result.output_paths['json']}")
-        print(f"  Markdown {result.output_paths['md']}")
+            print("  - Requested checks support a healthy target and service path.")
 
 
-def run_demo(out_dir: str) -> int:
+def run_demo(out_dir: str, scenario: str = "all") -> int:
     sandbox = start_sandbox(http_port=0, tcp_port=0, refused_port=0)
     renderer = DemoRenderer()
     failures = 0
     total = 0
     try:
-        print("Network Incident Pack — Live Validation")
-        print(f"Sandbox target: {sandbox.host}")
-        print(
-            "Real endpoints: "
-            f"HTTP={sandbox.http_port}, TCP={sandbox.tcp_port}, refused={sandbox.refused_port}"
-        )
+        cases = build_demo_cases(sandbox)
+        if scenario != "all":
+            cases = [case for case in cases if case.name == scenario]
 
-        for case in build_demo_cases(sandbox):
+        print("Network Incident Pack — Live Incident Demo")
+        print(f"Target: {sandbox.host}")
+
+        for index, case in enumerate(cases):
             total += 1
-            print("\n" + "=" * 72)
-            print(f"Scenario: {case.name}")
-            print(f"DNS name: {case.dns_name}")
-            print(f"Requested ports: {', '.join(str(port) for port in case.ports)}")
-            print("=" * 72)
+            if index:
+                print("\n" + "-" * 56)
+            print(f"\nScenario: {case.display_name}")
+            print(f"Requested ports: {', '.join(str(port) for port in case.ports)}\n")
 
             case_dir = Path(out_dir) / case.name
-            result = renderer.collect(
-                lambda case=case, case_dir=case_dir: run_incident_pack(
-                    IncidentPackRequest(
-                        target=sandbox.host,
-                        dns_name=case.dns_name,
-                        ports=case.ports,
-                        non_interactive=True,
-                        out_dir=str(case_dir),
-                        tcp_attempts=1,
-                        tcp_timeout=1.0,
-                    )
-                )
+            result = run_incident_pack(
+                IncidentPackRequest(
+                    target=sandbox.host,
+                    dns_name=case.dns_name,
+                    ports=case.ports,
+                    non_interactive=True,
+                    out_dir=str(case_dir),
+                    tcp_attempts=1,
+                    tcp_timeout=1.0,
+                    workers=1,
+                ),
+                progress_callback=renderer.progress,
             )
 
-            renderer.show_result(result)
+            renderer.interpretation(result)
 
             health = result.evidence["health"]
             status = str(health["status"])
@@ -301,21 +308,31 @@ def run_demo(out_dir: str) -> int:
                 status == case.expected_status
                 and reachability == case.expected_reachability
             )
-            marker = "PASS" if matched else "FAIL"
-            print(
-                f"\nScenario result: {marker} — "
-                f"status={status}, reachability={reachability}"
-            )
             if not matched:
                 failures += 1
+
+            if scenario == "all":
+                marker = "PASS" if matched else "FAIL"
+                print(
+                    f"\nScenario result: {marker} — "
+                    f"status={status}, reachability={reachability}"
+                )
+            else:
+                marker = "matched" if matched else "did not match"
+                print(f"\nExpected outcome {marker}.")
+
     finally:
         sandbox.close()
 
-    print("\n" + "=" * 72)
-    if failures:
-        print(f"Live validation complete: {total - failures}/{total} scenarios matched.")
-    else:
-        print(f"Live validation complete: {total}/{total} scenarios matched expected outcomes.")
+    if scenario == "all":
+        print("\n" + "=" * 56)
+        if failures:
+            print(f"Live validation complete: {total - failures}/{total} scenarios matched.")
+        else:
+            print(
+                f"Live validation complete: {total}/{total} scenarios matched expected outcomes."
+            )
+
     return 1 if failures else 0
 
 
@@ -324,8 +341,14 @@ def main(argv: Iterable[str] | None = None) -> int:
         description="Run visible healthy/failure Incident Pack live validation."
     )
     parser.add_argument("--out-dir", default="./lab-output")
+    parser.add_argument(
+        "--scenario",
+        choices=["all", "healthy", "service-refused", "dns-failure"],
+        default="all",
+        help="Run the full validation matrix or one focused portfolio scenario.",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
-    return run_demo(args.out_dir)
+    return run_demo(args.out_dir, scenario=args.scenario)
 
 
 if __name__ == "__main__":
