@@ -1,8 +1,13 @@
 # Incident Evidence Pack
 
-> Deterministic mock output from the baseline scenario. This file demonstrates the report format; live cloud evidence is documented separately in [Azure Live Validation Evidence](azure_validation.md).
+> Representative deterministic mock report from the baseline scenario. It demonstrates the human-readable handoff format; live cloud evidence is documented separately in [Azure Live Validation Evidence](azure_validation.md).
+
+## Incident Summary
+
+Host reachability is **HEALTHY**. DNS, ICMP, traceroute, and two requested TCP services succeeded. TCP/22 returned a connection refusal, so the overall incident state is **DEGRADED**: the host is reachable, but the requested SSH service is unavailable or not listening.
 
 ## Metadata
+
 - Report Schema: `2`
 - Timestamp (UTC): `2026-01-29T06:07:27+00:00`
 - Host: `demo-host`
@@ -14,59 +19,49 @@
 - Mock Scenario: `baseline`
 
 ## Health Summary
+
 - Overall: **DEGRADED**
 - Reachability: **HEALTHY**
 - Finding: 2/3 requested TCP checks connected
 
 ## Collection Summary
+
 - Host commands: **6/6 succeeded** (0 timed out)
 - TCP checks: **2/3 connected**
 - Parser errors: **0**
 
 ## Context
-- **Impact**: 
-- **Symptoms**: 
-- **Scope**: 
-- **Recent Changes**: 
-- **Actions Taken**: 
+
+- **Impact**:
+- **Symptoms**:
+- **Scope**:
+- **Recent Changes**:
+- **Actions Taken**:
 
 ## Key Results
-- DNS: ✅ `app.example.com` -> 93.184.216.34
-- Ping: **HEALTHY** (received 4/4, loss 0%, avg 23.25 ms)
-- Traceroute: **COMPLETE** (4 hops observed, 1 timeout hop, target reached)
-- Interfaces: **HEALTHY** (1 usable up, 2 total)
-- Routes: **HEALTHY** (2 routes, default route present)
-- Neighbors: **HEALTHY** (1 entries, 0 unresolved)
-- TCP 10.20.30.40:443: ✅ connect ok after 1 attempt
-- TCP 10.20.30.40:80: ✅ connect ok after 1 attempt
-- TCP 10.20.30.40:22: ❌ ConnectionRefusedError: Connection refused after 1 attempt
 
-## Raw Command Outputs
-### `ip addr`
+- DNS: `app.example.com` resolved to `93.184.216.34`
+- Ping: **HEALTHY** — 4/4 replies, 0% loss, 23.25 ms average
+- Traceroute: **COMPLETE** — target reached in 4 hops; one intermediate hop did not reply
+- Interfaces: **HEALTHY** — 1 usable interface up
+- Routes: **HEALTHY** — default route present
+- Neighbors: **HEALTHY** — 1 entry, 0 unresolved
+- TCP/443: **CONNECTED**
+- TCP/80: **CONNECTED**
+- TCP/22: **CONNECTION REFUSED**
 
-```text
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 state UNKNOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP
-    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
-    inet 192.168.1.25/24 brd 192.168.1.255 scope global eth0
-```
+## Selected Raw Evidence
 
-### `ip route`
+The full report retains the original command output. These excerpts show the evidence behind the summarized decision without reproducing every collected section.
+
+### Routing table
 
 ```text
 default via 192.168.1.1 dev eth0 proto dhcp metric 100
 192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.25 metric 100
 ```
 
-### `ip neigh`
-
-```text
-192.168.1.1 dev eth0 lladdr 00:11:22:33:44:55 REACHABLE
-```
-
-### `ping -c 4 10.20.30.40`
+### Ping
 
 ```text
 PING 10.20.30.40 (10.20.30.40) 56(84) bytes of data.
@@ -77,7 +72,7 @@ PING 10.20.30.40 (10.20.30.40) 56(84) bytes of data.
 rtt min/avg/max/mdev = 22.100/23.250/24.400/0.900 ms
 ```
 
-### `traceroute -n 10.20.30.40`
+### Traceroute
 
 ```text
 traceroute to 10.20.30.40 (10.20.30.40), 30 hops max, 60 byte packets
@@ -87,8 +82,6 @@ traceroute to 10.20.30.40 (10.20.30.40), 30 hops max, 60 byte packets
  4  10.20.30.40  22.400 ms  22.200 ms  22.300 ms
 ```
 
-### `ss -tulpn`
+## Handoff
 
-```text
-Netid State  Local Address:Port  Peer Address:Port
-```
+The evidence supports a reachable target with a service-specific issue on TCP/22. Investigation should continue at the SSH service or host policy layer rather than treating the target as generally unreachable.
