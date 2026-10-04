@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 FORBIDDEN_PARTS = {".git", ".venv", "__pycache__"}
 FORBIDDEN_SUFFIXES = (".egg-info", ".pyc", ".pyo")
 FORBIDDEN_NAMES = {".env"}
-REQUIRED_RELATIVE_FILES = {"README.md", "SECURITY.md", "docs/live_demo_real.png"}
+REQUIRED_RELATIVE_FILES = {"README.md", "SECURITY.md", "docs/ENGINEERING.md", "docs/VALIDATION.md"}
 
 
 def verify_archive(path: Path) -> None:

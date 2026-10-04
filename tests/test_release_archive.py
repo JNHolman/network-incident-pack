@@ -19,12 +19,13 @@ class ReleaseArchiveTests(unittest.TestCase):
         archive = self._archive(
             "network-incident-pack-v1.1.3/README.md",
             "network-incident-pack-v1.1.3/SECURITY.md",
-            "network-incident-pack-v1.1.3/docs/live_demo_real.png",
+            "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
+            "network-incident-pack-v1.1.3/docs/VALIDATION.md",
             "network-incident-pack-v1.1.3/incidentpack/__init__.py",
         )
         verify_archive(archive)
 
-    def test_rejects_missing_public_demo_asset(self):
+    def test_rejects_missing_required_docs(self):
         archive = self._archive(
             "network-incident-pack-v1.1.3/README.md",
             "network-incident-pack-v1.1.3/SECURITY.md",
@@ -36,7 +37,8 @@ class ReleaseArchiveTests(unittest.TestCase):
         archive = self._archive(
             "network-incident-pack-v1.1.3/README.md",
             "network-incident-pack-v1.1.3/SECURITY.md",
-            "network-incident-pack-v1.1.3/docs/live_demo_real.png",
+            "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
+            "network-incident-pack-v1.1.3/docs/VALIDATION.md",
             "network-incident-pack-v1.1.3/.venv/bin/python",
         )
         with self.assertRaisesRegex(ValueError, "forbidden artifacts"):
@@ -52,7 +54,8 @@ class ReleaseArchiveTests(unittest.TestCase):
                 archive = self._archive(
                     "network-incident-pack-v1.1.3/README.md",
                     "network-incident-pack-v1.1.3/SECURITY.md",
-                    "network-incident-pack-v1.1.3/docs/live_demo_real.png",
+                    "network-incident-pack-v1.1.3/docs/ENGINEERING.md",
+            "network-incident-pack-v1.1.3/docs/VALIDATION.md",
                     member,
                 )
                 with self.assertRaisesRegex(ValueError, "forbidden artifacts"):

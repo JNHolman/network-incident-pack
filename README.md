@@ -74,7 +74,7 @@ The live matrix covers:
 | `service-refused` | the host responds but one requested TCP service has no listener | `DEGRADED`, reachability remains `HEALTHY` |
 | `dns-failure` | the IP/TCP path works while the requested DNS name fails resolution | `DEGRADED`, reachability remains `HEALTHY` |
 
-The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. See [Validation](docs/LAB_VALIDATION.md) for what is live, deterministic, mocked, and still pending.
+The sandbox uses real localhost listeners, TCP handshakes/refusals, DNS resolution, host commands, parsers, health evaluation, report validation, and output writers. A [sample Markdown incident report](examples/sample_output.md) shows the final human-readable handoff. See [Validation](docs/VALIDATION.md) for what is live, deterministic, mocked, and still pending.
 
 ## What the project includes
 
@@ -110,7 +110,7 @@ The CLI is a thin entry point over a reusable application service. Collection, p
 
 The project also keeps resource use bounded: port count, worker count, retry count, and command/TCP timeouts are capped. Credentialed integration endpoints require HTTPS, redirects are not automatically followed with credentials, and credentials come from environment variables rather than command-line arguments or inventory files.
 
-See [Engineering and Architecture](docs/ARCHITECTURE.md) for the application flow and the reasons behind the main design choices.
+See [Engineering and Architecture](docs/ENGINEERING.md) for the application flow and the reasons behind the main design choices.
 
 ## Validation
 
@@ -129,7 +129,7 @@ Real Azure VM/network validation is planned but not yet represented as completed
 
 The project is a host-side network/infrastructure incident automation tool. It is not represented as a multi-vendor network-management platform, an infrastructure-provisioning system, or validation against production organization environments.
 
-See [Validation](docs/LAB_VALIDATION.md) for the evidence boundaries.
+See [Validation](docs/VALIDATION.md) for the evidence boundaries.
 
 ## Optional: run the demo locally
 
@@ -146,8 +146,8 @@ This is optional. The repository and demo output are intended to be understandab
 
 | Document | Purpose |
 | --- | --- |
-| [Engineering and Architecture](docs/ARCHITECTURE.md) | how the workflow is built and why the main engineering choices were made |
-| [Validation](docs/LAB_VALIDATION.md) | what has been proven live, what is deterministic/mock coverage, and what remains pending |
+| [Engineering and Architecture](docs/ENGINEERING.md) | how the workflow is built and why the main engineering choices were made |
+| [Validation](docs/VALIDATION.md) | what has been proven live, what is deterministic/mock coverage, and what remains pending |
 | [Security](SECURITY.md) | authorization scope, endpoint/credential handling, redaction limits, and vulnerability reporting |
 
 ## License
